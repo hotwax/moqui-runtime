@@ -39,6 +39,8 @@
             <input type="hidden" name="initialTab" value="login">
             <#-- people know what to do <p class="text-muted text-center">${ec.l10n.localize("Enter your username and password to sign in")}</p> -->
             <#-- not needed for this request: <input type="hidden" name="moquiSessionToken" value="${ec.web.sessionToken}"> -->
+            <input type="text" name="tenant_id" required="required" class="form-control middle"
+                                    placeholder="${ec.l10n.localize("Tenant Id")}" aria-label="${ec.l10n.localize("Tenant Id")}">
             <input id="login_form_username" name="username" type="text" value="${(username!"")?html}"
                     <#if username?has_content && secondFactorRequired>disabled="disabled"</#if>
                     required="required" class="form-control top"
