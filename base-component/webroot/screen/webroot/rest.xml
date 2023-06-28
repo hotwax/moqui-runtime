@@ -35,7 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
         <parameter name="password" required="true"/>
         <parameter name="code"/>
         <actions>
-            <set field="loggedIn" from="ec.user.loginUser(username, password)"/>
+            <set field="loggedIn" from="ec.user.loginUser(username, password, tenantId)"/>
             <if condition="ec.message.hasError()"><script>ec.web.sendJsonResponse([loggedIn:false])</script></if>
 
             <if condition="ec.web.sessionAttributes.moquiAuthcFactorRequired"><then>
@@ -238,6 +238,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script>ec.web.handleEntityRestCall(sri.screenUrlInfo.extraPathNameList, false)</script></actions>
         <default-response type="none"/>
     </transition>
+    
 
     <!--
     To get the json-schema (see http://json-schema.org) for an entity use a request like:
@@ -371,7 +372,8 @@ along with this software (see the LICENSE.md file). If not, see
     curl -X GET -u john.doe:moqui http://localhost:8080/rest/service.raml/example.raml
     -->
     <transition name="service.swagger" read-only="true" method="get">
-        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleServiceRestSwagger(ec, sri.screenUrlInfo.extraPathNameList, "/rest/s1")</script></actions>
+        <service-call name="moqui.example.ExampleServices.create#Example" in-map="ec.web.parameters"
+                      web-send-json-response="true"/>
         <default-response type="none"/>
     </transition>
     <transition name="service.raml" read-only="true" method="get">
