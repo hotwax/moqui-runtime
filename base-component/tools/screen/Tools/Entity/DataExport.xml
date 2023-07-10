@@ -35,16 +35,19 @@ along with this software (see the LICENSE.md file). If not, see
                     entityNames = entityNames.split(",") as List
                 }
 
+// check for entities in the tenantcommon group, not allowed in Tools app for multi-tenant security
                 if (entityNames instanceof List) {
                     for (String entityName in entityNames) {
                         def entDef = ec.entity.getEntityDefinition(entityName)
-                        if (entDef == null) ec.message.addError(ec.resource.expand('Could not find entity with name ${entityName}',''))
+                        if (entDef == null || entDef.getEntityGroupName() == 'tenantcommon')
+                            ec.message.addError(ec.resource.expand('Could not find entity with name ${entityName}',''))
                     }
                     edw.entityNames(entityNames)
                 } else {
                     def entDef = ec.entity.getEntityDefinition(entityNames)
-                    if (entDef == null) ec.message.addError(ec.resource.expand('Could not find entity with name ${entityNames}',''))
-                    edw.entityName(entityNames as String)
+                    if (entDef == null || entDef.getEntityGroupName() == 'tenantcommon')
+                        ec.message.addError(ec.resource.expand('Could not find entity with name ${entityNames}'))
+                    edw.entityName(entityNames)
                 }
 
                 if (ec.message.hasError()) return
@@ -53,8 +56,8 @@ along with this software (see the LICENSE.md file). If not, see
                 if (masterName) edw.master(masterName)
                 if (fromDate) edw.fromDate(ec.l10n.parseTimestamp(fromDate, null))
                 if (thruDate) edw.thruDate(ec.l10n.parseTimestamp(thruDate, null))
-                if (filterMap) edw.filterMap((Map) ec.resource.expression(filterMap, null))
-                if (orderBy) edw.orderBy([(String) orderBy])
+                if (filterMap) edw.filterMap(ec.resource.expression(filterMap, null))
+                if (orderBy) edw.orderBy([orderBy])
                 edw.fileType((String) fileType)
                 if(fileType == 'CSV') edw.tableColumnNames(useTableColumnNames == 'Yes' ? true : false)
 
