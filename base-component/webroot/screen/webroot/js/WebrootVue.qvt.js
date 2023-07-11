@@ -1009,7 +1009,7 @@ Vue.component('m-form-paginate', {
     name: "mFormPaginate",
     props: { paginate:Object, formList:Object },
     template:
-    '<div v-if="paginate" class="q-pagination row no-wrap items-center">' +
+    '<div v-if="paginate &amp;&amp; paginate.count > 1" class="q-pagination row no-wrap items-center">' +
         '<template v-if="paginate.pageIndex > 0">' +
             '<q-btn dense flat no-caps @click.prevent="setIndex(0)" icon="skip_previous"></q-btn>' +
             '<q-btn dense flat no-caps @click.prevent="setIndex(paginate.pageIndex-1)" icon="fast_rewind"></q-btn></template>' +
@@ -2417,6 +2417,14 @@ moqui.webrootVue = new Vue({
             if (resp.loggedIn) {
                 this.reLoginPostLogin();
             }
+        },
+        qLayoutMinHeight: function(offset) {
+            // "offset" is a Number (pixels) that refers to the total
+            // height of header + footer that occupies on screen,
+            // based on the QLayout "view" prop configuration
+
+            // this is actually what the default style-fn does in Quasar
+            return { minHeight: offset ? `calc(100vh - ${offset}px)` : '100vh' }
         }
     },
     watch: {
