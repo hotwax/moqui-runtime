@@ -2383,7 +2383,7 @@ moqui.webrootVue = new Vue({
         reLoginSubmit: function() {
             $.ajax({ type:'POST', url:(this.appRootPath + '/rest/login'), error:moqui.handleAjaxError, success:this.reLoginHandleResponse,
                 dataType:'json', headers:{Accept:'application/json'}, xhrFields:{withCredentials:true},
-                data:{ username:this.username, password:this.reLoginPassword } });
+                data:{ username:this.username, password:this.reLoginPassword, tenantId:this.reLoginTenantId} });
         },
         reLoginHandleResponse: function(resp, status, jqXHR) {
             // console.warn("re-login response: " + JSON.stringify(resp));
