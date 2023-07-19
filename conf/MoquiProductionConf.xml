@@ -14,7 +14,7 @@
     <default-property name="webapp_upload_executable_allow" value="false"/>
     <default-property name="ds_transactional_user" value="moqui"/>
     <default-property name="ds_transactional_password" value="moqui"/>
-    <default-property name="ds_transactional_url" value="jdbc:mysql://moqui-database:3306/moqui"/>
+    <default-property name="ds_transactional_url" value="jdbc:mysql://localhost:3306/tenant_common"/>
     <default-property name="webapp_client_ip_header" value=""/>
     <default-property name="entity_ds_db_conf" value="mysql8"/>
     <default-property name="entity_ds_host" value="127.0.0.1"/>
@@ -39,7 +39,7 @@
     <default-property name="entity_ds_c1_database" value=""/>
     <default-property name="entity_ds_c1_user" value=""/>
     <default-property name="entity_ds_c1_password" value=""/>
-    <default-property name="scheduled_job_check_time" value="0"/>
+    <default-property name="scheduled_job_check_time" value="60"/>
     <default-property name="elasticsearch_url" value="http://127.0.0.1:9200"/>
     <default-property name="elasticsearch_user" value=""/>
     <default-property name="elasticsearch_password" value=""/>
@@ -241,7 +241,7 @@
         <screen location="component://tools/screen/System.xml">
             <subscreens-item name="HazelcastInfo" menu-title="Hazelcast Info" menu-index="21" location="component://moqui-hazelcast/screen/HazelcastInfo.xml"/></screen>
     </screen-facade>
-    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}" job-queue-max="0" job-pool-core="0" job-pool-max="8" job-pool-alive="120">
+    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}" job-queue-max="0" job-pool-core="2" job-pool-max="8" job-pool-alive="120">
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
         <service-type name="inline" runner-class="org.moqui.impl.service.runner.InlineServiceRunner"/>
         <service-type name="entity-auto" runner-class="org.moqui.impl.service.runner.EntityAutoServiceRunner"/>
@@ -277,10 +277,10 @@
         <decrypt-alt crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass_old}"/>
         <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}" runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}">
             <inline-jdbc>
-                <xa-properties user="${ds_transactional_user}" password="${ds_transactional_password}" pinGlobalTxToPhysicalConnection="true" url="${ds_transactional_url}" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"/></inline-jdbc></datasource>
+                <xa-properties user="${ds_transactional_user}" password="${ds_transactional_password}" pinGlobalTxToPhysicalConnection="true" url="${ds_transactional_url}" autoReconnectForPools="true"/></inline-jdbc></datasource>
         <datasource group-name="transactional#clone1" database-conf-name="${entity_ds_c1_db_conf}" schema-name="${entity_ds_c1_schema}" runtime-add-missing="false" startup-add-missing="false" disabled="${entity_ds_c1_disabled}">
             <inline-jdbc pool-maxsize="40" isolation-level="ReadUncommitted">
-                <xa-properties serverName="${entity_ds_c1_host}" port="${entity_ds_c1_port?:'3306'}" databaseName="${entity_ds_c1_database}" user="${entity_ds_c1_user}" password="${entity_ds_c1_password}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"/></inline-jdbc></datasource>
+                <xa-properties serverName="${entity_ds_c1_host}" port="${entity_ds_c1_port?:'3306'}" databaseName="${entity_ds_c1_database}" user="${entity_ds_c1_user}" password="${entity_ds_c1_password}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"/></inline-jdbc></datasource>
         <datasource group-name="logging" runtime-add-missing="true" startup-add-missing="false" object-factory="org.moqui.impl.entity.elastic.ElasticDatasourceFactory">
             <inline-other index-prefix="logging-" cluster-name="default"/></datasource>
         <datasource group-name="tenantcommon" database-conf-name="${entity_ds_db_conf}" schema-name="">
@@ -398,7 +398,7 @@
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
             <name-replace original="CONDITION" replace="THE_CONDITION"/>
             <inline-jdbc pool-maxsize="140">
-                <xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8" useCursorFetch="true" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+                <xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useCursorFetch="true" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <database name="mysql8" lb-name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" from-lateral-style="lateral" never-nulls="true" table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk" constraint-name-clip-length="60" default-isolation-level="ReadCommitted" default-test-query="SELECT 1" default-startup-add-missing="true" default-runtime-add-missing="true" default-jdbc-driver="com.mysql.cj.jdbc.Driver" default-xa-ds-class="com.mysql.cj.jdbc.MysqlXADataSource">
             <database-type type="date-time" sql-type="DATETIME(3)"/>
