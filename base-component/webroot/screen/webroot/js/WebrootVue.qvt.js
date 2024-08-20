@@ -1354,7 +1354,7 @@ Vue.component('m-date-period', {
     template:
     '<div v-if="fromThruMode" class="row">' +
         '<m-date-time :name="name+\'_from\'" :id="id+\'_from\'" :label="label+\' From\'" :form="form" :type="fromThruType"' +
-        ' v-model="fields[name+\'_from\']" :bg-color="fieldChanged(name+\'_from\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'"></m-date-time>' +
+            ' v-model="fields[name+\'_from\']" :bg-color="fieldChanged(name+\'_from\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'"></m-date-time>' +
         '<q-icon class="q-my-auto" name="remove"></q-icon>' +
         '<m-date-time :name="name+\'_thru\'" :id="id+\'_thru\'" :label="label+\' Thru\'" :form="form" :type="fromThruType"' +
             ' v-model="fields[name+\'_thru\']" :bg-color="fieldChanged(name+\'_thru\')?($q.dark.isActive?\'blue-10\':\'blue-1\'):\'\'">' +
