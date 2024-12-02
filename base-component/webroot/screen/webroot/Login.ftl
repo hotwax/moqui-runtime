@@ -44,6 +44,10 @@
                     <#if username?has_content && secondFactorRequired>disabled="disabled"</#if>
                     required="required" class="form-control top"
                     placeholder="${ec.l10n.localize("Username")}" aria-label="${ec.l10n.localize("Username")}">
+            <#if !ec.getWeb()?? || ec.getWeb().getSession().getAttribute("moqui.tenantAllowOverride")! != "N">
+                    <input type="text" name="tenant_id" required="required" class="form-control middle"
+                    placeholder="${ec.l10n.localize("Tenant Id")}" aria-label="${ec.l10n.localize("Tenant Id")}">
+            </#if>
             <#-- secondFactorRequired will only be set if a user is pre-authenticated, and in that case password not required again -->
             <#if secondFactorRequired>
                 <input id="login_form_code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
@@ -73,10 +77,15 @@
             <p class="text-muted text-center">${ec.l10n.localize("Enter your username to email a reset password")}</p>
             <input type="hidden" name="moquiSessionToken" value="${ec.web.sessionToken}">
             <input type="hidden" name="initialTab" value="reset">
+            <#if !ec.getWeb()?? || ec.getWeb().getSession().getAttribute("moqui.tenantAllowOverride")! != "N">
+                <input id="reset_form_username" type="text" name="username" value="${(ec.getWeb().getErrorParameters().get("username"))!""}" placeholder="Username" required="required" class="form-control top">
+                <input type="text" name="tenantId" value="${(ec.getWeb().getErrorParameters().get("tenantId"))!""}" placeholder="Tenant ID" class="form-control bottom">
+            <#else>
             <input id="reset_form_username" name="username" type="text" value="${(username!"")?html}"
                     <#if username?has_content && secondFactorRequired>disabled="disabled"</#if>
                     required="required" class="form-control"
                     placeholder="${ec.l10n.localize("Username")}" aria-label="${ec.l10n.localize("Username")}">
+            </#if>
             <button class="btn btn-lg btn-danger btn-block" type="submit">${ec.l10n.localize("Email Reset Password")}</button>
         </form>
     </div>
@@ -102,8 +111,15 @@
             <#-- FUTURE: fancy JS to validate PW as it is entered or on blur -->
             <input type="password" name="newPassword" required="required" class="form-control middle"
                     placeholder="${ec.l10n.localize("New Password")}" aria-label="${ec.l10n.localize("New Password")}">
-            <input type="password" name="newPasswordVerify" required="required" class="form-control bottom"
-                    placeholder="${ec.l10n.localize("New Password Verify")}" aria-label="${ec.l10n.localize("New Password Verify")}">
+            <#if !ec.getWeb()?? || ec.getWeb().getSession().getAttribute("moqui.tenantAllowOverride")! != "N">
+                <input type="password" name="newPasswordVerify" placeholder="New Password Verify" required="required" class="form-control middle"
+                placeholder="${ec.l10n.localize("New Password Verify")}" aria-label="${ec.l10n.localize("New Password Verify")}">
+                <input type="text" name="tenantId" value="${(ec.getWeb().getErrorParameters().get("tenantId"))!""}" placeholder="Tenant ID" class="form-control bottom"
+                placeholder="${ec.l10n.localize("Tenant Id")}" aria-label="${ec.l10n.localize("Tenant Id")}">
+            <#else>
+                <input type="password" name="newPasswordVerify" placeholder="New Password Verify" required="required" class="form-control bottom"
+                placeholder="${ec.l10n.localize("New Password Verify")}" aria-label="${ec.l10n.localize("New Password Verify")}">
+            </#if>
             <button class="btn btn-lg btn-danger btn-block" type="submit">${ec.l10n.localize("Change Password")}</button>
 
             <p class="text-muted text-center">Password must be at least ${minLength} characters

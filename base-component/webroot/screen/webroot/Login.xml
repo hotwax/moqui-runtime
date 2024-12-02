@@ -45,7 +45,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername"/>
             </then><else>
                 <!-- no pre-auth, try logging in (pre-auth if 2nd factor required) -->
-                <set field="loggedIn" from="ec.user.loginUser(username, password)"/>
+                <set field="loggedIn" from="ec.user.loginUser(username, password, tenant_id)"/>
             </else></if>
 
             <if condition="ec.web.sessionAttributes.moquiAuthcFactorRequired">
@@ -91,11 +91,12 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
     <transition name="changePassword">
         <parameter name="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername ?: username"/>
+        <parameter name="tenantId" from="tenantId"/>
         <service-call name="org.moqui.impl.UserServices.update#Password"/>
         <actions>
             <!-- password change success, login the user -->
             <if condition="updateSuccessful">
-                <set field="loginSuccess" from="ec.user.internalLoginUser(username)"/></if>
+                <set field="loginSuccess" from="ec.user.internalLoginUser(username,tenandId)"/></if>
         </actions>
         <conditional-response type="screen-last"><condition><expression>updateSuccessful</expression></condition></conditional-response>
         <default-response url="." parameter-map="[initialTab:'#change']"/>

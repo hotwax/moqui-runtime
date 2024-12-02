@@ -38,7 +38,12 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <actions>
-        <set field="rootOptions" from="[mantleContentRoot, 'dbresource://', 'component://webroot', 'file:runtime']"/>
+        <set field="rootOptions" from="[mantleContentRoot, 'dbresource://', 'component://webroot']"/>
+        <script><![CDATA[
+            if (ec.tenantId == 'DEFAULT') rootOptions.add('file:runtime')
+            if (ec.tenantId != 'DEFAULT' && (!resourceRoot.contains(':') || resourceRoot.startsWith('file') || resourceRoot.startsWith('classpath')))
+                ec.message.addError(ec.resource.expand('File and classpath resources not allowed in tenant ${ec.tenantId}',''))
+        ]]></script>
         <if condition="mantleContentLargeRoot != mantleContentRoot"><script>rootOptions.add(mantleContentLargeRoot)</script></if>
     </actions>
     <widgets>
