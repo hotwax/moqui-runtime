@@ -91,4 +91,10 @@
         <repository name="main" workspace="default" username="admin" password="admin">
             <init-param name="org.apache.jackrabbit.repository.uri" value="http://localhost:8081/rmi"/></repository> -->
     </repository-list>
+    <default-property name="entity_ds_db_conf" value="mysql8"/>
+    <default-property name="entity_ds_host" value="127.0.0.1"/>
+    <default-property name="entity_ds_port" value="3306"/>
+    <default-property name="entity_ds_database" value="primary-local-db"/>
+    <default-property name="entity_ds_user" value="moqui"/>
+    <default-property name="entity_ds_password" value="moqui"/>
 </moqui-conf>
