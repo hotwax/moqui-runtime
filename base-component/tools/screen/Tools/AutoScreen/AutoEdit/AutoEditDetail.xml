@@ -67,7 +67,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <form-single name="CreateEntityValue" transition="create" dynamic="true">
                     <auto-fields-entity entity-name="${den}" field-type="edit"/>
                     <field name="aen"><default-field><hidden/></default-field></field>
-                    <field name="createdStamp"><default-field><hidden/></default-field></field>
                     <field name="den"><default-field><hidden/></default-field></field>
                     <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
                 </form-single>
