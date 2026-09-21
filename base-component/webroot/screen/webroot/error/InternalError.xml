@@ -20,12 +20,14 @@ along with this software (see the LICENSE.md file). If not, see
             <p>&nbsp;</p>
             <div class="jumbotron">
                 <h1><i class="fa fa-exclamation-circle text-danger"></i> Internal Server Error (${errorCode})</h1>
-                <p class="text-danger">${errorMessage!""}</p>
+                <p class="text-danger">${(errorMessage!"")?html}</p>
                 <a href="${sri.buildUrl("/").url}" class="btn btn-primary btn-lg" role="button">Go Home</a>
                 <a href="javascript:window.history.back();" class="btn btn-primary btn-lg" role="button">Go Back</a>
-                <#if errorThrowable??><button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#ErrorDetailModal">See Detail</button></#if>
+                <#if showErrorDetail!false>
+                <button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#ErrorDetailModal">See Detail</button>
+                </#if>
             </div>
-            <#if errorThrowable??>
+            <#if showErrorDetail!false>
                 <#assign stackList = errorThrowable.getStackTrace()>
                 <div id="ErrorDetailModal" class="modal fade" tabindex="-1" role="dialog">
                   <div class="modal-dialog modal-lg"><div class="modal-content">

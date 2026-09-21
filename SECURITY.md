@@ -17,3 +17,9 @@ To report security issues that should not be disclosed publicly before they are 
 ## Issues and Pull Requests
 
 For more information on submitting issues and pull requests please see the [Issue and Pull Request Guide](https://moqui.org/m/docs/moqui/Issue+and+Pull+Request+Guide) on moqui.org.
+
+## Attack surface
+
+This repository is the default **runtime** directory: `webroot` (root screen, `/rest`, `/rpc`, Login) and `tools` (System and Tools apps, `/rest/s1/moqui`, seed artifact authz).
+
+The inventory for moqui-framework **and** this runtime is in the framework repo: [SECURITY_SURFACE.md](https://github.com/moqui/moqui-framework/blob/master/SECURITY_SURFACE.md). Operator checklist: [Run and Deploy — Production security](https://www.moqui.org/m/docs/framework/Run+and+Deploy).

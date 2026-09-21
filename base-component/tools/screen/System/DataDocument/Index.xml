@@ -16,7 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
         default-menu-title="Index" default-menu-index="2">
 
-    <transition name="indexFeedDocuments">
+    <transition name="indexFeedDocuments" authz-action="update">
         <!-- <service-call name="org.moqui.search.SearchServices.index#DataFeedDocuments" in-map="context"/> -->
         <actions>
             <script>jobRunId = ec.service.job("IndexDataFeedDocuments").parameter("dataFeedId", dataFeedId).parameter("dataDocumentId", dataDocumentId)

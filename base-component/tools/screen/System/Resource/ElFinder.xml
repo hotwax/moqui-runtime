@@ -24,7 +24,7 @@ along with this software (see the LICENSE.md file). If not, see
     </always-actions>
 
     <!-- set read-only=true because in spite of setting requestType:'post' some requests come as gets -->
-    <transition name="command" read-only="true">
+    <transition name="command" read-only="true" authz-action="all">
         <actions>
             <!-- <log level="warn" message="============ resourceRoot=${resourceRoot}, ec.web.parameters=${ec.web.parameters}"/> -->
             <service-call name="org.moqui.impl.ElFinderServices.run#Command" out-map="context"
@@ -38,6 +38,7 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <actions>
+        <!-- component://webroot and file:runtime stay selectable for browse; write commands are refused when instance_purpose is production -->
         <set field="rootOptions" from="[mantleContentRoot, 'dbresource://', 'component://webroot', 'file:runtime']"/>
         <if condition="mantleContentLargeRoot != mantleContentRoot"><script>rootOptions.add(mantleContentLargeRoot)</script></if>
     </actions>

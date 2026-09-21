@@ -15,7 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
         default-menu-index="99" default-menu-title="Thread List">
 
-    <transition name="interruptThread">
+    <transition name="interruptThread" authz-action="all">
         <parameter name="threadName"/>
         <actions><script><![CDATA[
             boolean found = false
@@ -35,11 +35,11 @@ along with this software (see the LICENSE.md file). If not, see
         ]]></script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="setWorkerPoolSize">
+    <transition name="setWorkerPoolSize" authz-action="all">
         <actions><script>ec.factory.workerPool.setCorePoolSize(coreSize as int); ec.factory.workerPool.setMaximumPoolSize(maxSize as int)</script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="scheduledReInit">
+    <transition name="scheduledReInit" authz-action="all">
         <actions><script>ec.factory.scheduledReInit()</script></actions>
         <default-response url="."/>
     </transition>

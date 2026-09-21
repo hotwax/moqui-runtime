@@ -16,7 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
         default-menu-index="1" menu-image="fa fa-dashboard" menu-image-type="icon">
 
     <transition name="threadList"><default-response url="../ThreadList"/></transition>
-    <transition name="reInitElasticFacade">
+    <transition name="reInitElasticFacade" authz-action="update">
         <actions><script>ec.elastic.init()</script></actions>
         <default-response url="."/>
     </transition>

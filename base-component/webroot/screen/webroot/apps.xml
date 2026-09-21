@@ -19,22 +19,34 @@ along with this software (see the LICENSE.md file). If not, see
     <transition name="ScreenTree"><default-response url="../ScreenTree"/></transition>
     <transition name="setPreference">
         <parameter name="preferenceKey"/><parameter name="preferenceValue"/>
-        <actions><script>ec.user.setPreference(preferenceKey, preferenceValue)</script></actions>
+        <actions><script><![CDATA[
+            if (!ec.user.userId) throw new org.moqui.context.AuthenticationRequiredException("Authentication required")
+            ec.user.setPreference(preferenceKey, preferenceValue)
+            ]]></script></actions>
         <default-response type="none"/>
     </transition>
     <transition name="setPrefGoLast" read-only="true">
         <parameter name="preferenceKey"/><parameter name="preferenceValue"/>
-        <actions><script>ec.user.setPreference(preferenceKey, preferenceValue)</script></actions>
+        <actions><script><![CDATA[
+            if (!ec.user.userId) throw new org.moqui.context.AuthenticationRequiredException("Authentication required")
+            ec.user.setPreference(preferenceKey, preferenceValue)
+            ]]></script></actions>
         <default-response type="screen-last"/>
     </transition>
     <transition name="getPreferences" read-only="true">
         <parameter name="keyRegexp"/>
-        <actions><script>ec.web.sendJsonResponse(ec.user.getPreferences(keyRegexp))</script></actions>
+        <actions><script><![CDATA[
+            if (!ec.user.userId) throw new org.moqui.context.AuthenticationRequiredException("Authentication required")
+            ec.web.sendJsonResponse(ec.user.getPreferences(keyRegexp))
+            ]]></script></actions>
         <default-response type="none"/>
     </transition>
     <transition name="qzSign" read-only="true">
         <parameter name="message"/>
-        <actions><script>ec.web.sendQzSignedResponse(message)</script></actions>
+        <actions><script><![CDATA[
+            if (!ec.user.userId) throw new org.moqui.context.AuthenticationRequiredException("Authentication required")
+            ec.web.sendQzSignedResponse(message)
+            ]]></script></actions>
         <default-response type="none"/>
     </transition>
 

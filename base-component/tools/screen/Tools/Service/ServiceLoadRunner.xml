@@ -15,7 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
         default-menu-title="Service Load Runner" default-menu-index="3" render-modes="vue,qvue" server-static="vue,qvue">
 
-    <transition name="getServerStatusMap">
+    <transition name="getServerStatusMap" authz-action="update">
         <actions><script>ec.web.sendJsonResponse(ec.factory.getStatusMap(true))</script></actions>
         <default-response type="none"/>
     </transition>
@@ -83,21 +83,21 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script></actions>
         <default-response type="none"/>
     </transition>
-    <transition name="setServiceInfo" method="post">
+    <transition name="setServiceInfo" method="post" authz-action="all">
         <actions><script>ec.service.getLoadRunner().setServiceInfo(serviceName, parametersExpr, targetThreads as int,
                 (runDelayMs as Integer) ?: 100, (runDelayVaryMs as Integer) ?: 5, (rampDelayMs as Integer) ?: 505,
                 (timeBinLength as Integer) ?: 2000, (timeBinsKeep as Integer) ?: 20)</script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="begin" method="post">
+    <transition name="begin" method="post" authz-action="all">
         <actions><script>ec.service.getLoadRunner().begin()</script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="stopNow" method="post">
+    <transition name="stopNow" method="post" authz-action="all">
         <actions><script>ec.service.getLoadRunner().stopNow()</script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="stopWait" method="post">
+    <transition name="stopWait" method="post" authz-action="all">
         <actions><script>ec.service.getLoadRunner().stopWait()</script></actions>
         <default-response url="."/>
     </transition>

@@ -21,11 +21,14 @@ along with this software (see the LICENSE.md file). If not, see
     <transition name="list"><default-response url="../EntityList"/></transition>
     <transition name="find"><default-response url="."/></transition>
     <transition name="create">
-        <actions><service-call name="create#${selectedEntity}" in-map="true"/></actions>
+        <actions>
+            <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(selectedEntity)"><message error="true">Entity ${selectedEntity} is not available through this tool</message><return/></if>
+            <service-call name="create#${selectedEntity}" in-map="true"/></actions>
         <default-response url="."/>
     </transition>
     <transition name="listSubmit">
         <actions>
+            <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(selectedEntity)"><message error="true">Entity ${selectedEntity} is not available through this tool</message><return/></if>
             <if condition="delete">
                 <service-call name="delete#${selectedEntity}" in-map="true"/>
             </if>
@@ -37,6 +40,7 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(selectedEntity)"><message error="true">Entity ${selectedEntity} is not available through this tool</message><return/></if>
         <set field="entityDefinition" from="ec.entity.getEntityDefinition(selectedEntity)"/>
         <entity-find entity-name="${selectedEntity}" list="entityValueList" offset="0" limit="50" use-clone="true">
             <search-form-inputs/>

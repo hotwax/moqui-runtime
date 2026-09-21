@@ -36,7 +36,10 @@ along with this software (see the LICENSE.md file). If not, see
         <parameter name="code"/>
         <actions>
             <set field="loggedIn" from="ec.user.loginUser(username, password)"/>
-            <if condition="ec.message.hasError()"><script>ec.web.sendJsonResponse([loggedIn:false])</script></if>
+            <if condition="ec.message.hasError()">
+                <script>ec.web.sendJsonError(401, ec.message.errorsString, null)</script>
+                <return/>
+            </if>
 
             <if condition="ec.web.sessionAttributes.moquiAuthcFactorRequired"><then>
                 <if condition="code"><then>
@@ -44,6 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
                             in-map="[code:code]" out-map="validateOut"/>
                     <if condition="validateOut.verified"><then>
                         <script>ec.user.internalLoginUser(validateOut.username)</script>
+                        <script>ec.web.sendJsonResponse([loggedIn:true])</script>
                         <return/>
                     </then><else>
                         <message type="danger" public="true">Authentication code is not valid</message>
@@ -72,13 +76,19 @@ along with this software (see the LICENSE.md file). If not, see
     <transition name="verifyOtp" method="post">
         <parameter name="code" required="true"/>
         <actions>
+            <!-- Check before the service-call: a service error (no pre-auth) otherwise stops remaining
+                 actions and default-response type="none" returns 200 with an empty body. -->
+            <if condition="!ec.web.sessionAttributes.moquiPreAuthcUsername">
+                <script>ec.web.sendJsonError(401, "No user pre-authenticated, cannot send code", null)</script>
+                <return/>
+            </if>
             <service-call name="org.moqui.impl.UserServices.validate#ExternalUserAuthcCode"
-                    in-map="[code:code]" out-map="validateOut"/>
-            <if condition="validateOut.verified"><then>
+                    in-map="[code:code]" out-map="validateOut" ignore-error="true"/>
+            <if condition="ec.message.hasError() || !validateOut?.verified"><then>
+                <script>ec.web.sendJsonError(403, (ec.message.hasError() ? ec.message.errorsString : ec.l10n.localize("Authentication code is not valid")), null)</script>
+            </then><else>
                 <set field="loggedIn" from="ec.user.internalLoginUser(validateOut.username)"/>
                 <script>ec.web.sendJsonResponse([loggedIn:loggedIn])</script>
-            </then><else>
-                <script>ec.web.sendError(403, ec.l10n.localize("Authentication code is not valid"))</script>
             </else></if>
         </actions>
         <default-response type="none"/>

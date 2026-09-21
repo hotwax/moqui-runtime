@@ -125,12 +125,18 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- handle returnTo parameter, and general handling for when the Login screen is reached directly
             (as opposed to redirect following attempted request to screen that requires authz) -->
         <if condition="returnTo"><then>
-            <log message="setting last path to ${returnTo}"/>
-            <script>ec.web.session.setAttribute('moqui.screen.last.path', returnTo)</script>
+            <if condition="org.moqui.util.WebUtilities.isSameOriginRedirect(returnTo, ec.web.request)"><then>
+                <log message="setting last path to ${returnTo}"/>
+                <script>ec.web.session.setAttribute('moqui.screen.last.path', returnTo)</script>
+            </then><else>
+                <log level="warn" message="Ignoring off-site returnTo [${returnTo}]"/>
+            </else></if>
         </then><else>
             <if condition="!ec.web.session.getAttribute('moqui.screen.last.path')">
                 <set field="referrer" from="ec.web.request.getHeader('Referer')"/>
-                <if condition="referrer"><script>ec.web.session.setAttribute('moqui.screen.last.path', referrer)</script></if>
+                <if condition="referrer &amp;&amp; org.moqui.util.WebUtilities.isSameOriginRedirect(referrer, ec.web.request)">
+                    <script>ec.web.session.setAttribute('moqui.screen.last.path', referrer)</script>
+                </if>
             </if>
         </else></if>
 

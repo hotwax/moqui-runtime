@@ -21,11 +21,17 @@ along with this software (see the LICENSE.md file). If not, see
 
     <transition name="list"><default-response url="../../MainEntityList"/></transition>
     <transition name="find"><default-response url="../../AutoFind"/></transition>
-    <transition name="create"><actions><service-call name="create#${den}" in-map="true"/></actions>
+    <transition name="create"><actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(den)"><message error="true">Entity ${den} is not available through this tool</message><return/></if>
+        <service-call name="create#${den}" in-map="true"/></actions>
         <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/></transition>
-    <transition name="update"><actions><service-call name="update#${den}" in-map="true"/></actions>
+    <transition name="update"><actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(den)"><message error="true">Entity ${den} is not available through this tool</message><return/></if>
+        <service-call name="update#${den}" in-map="true"/></actions>
         <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/></transition>
-    <transition name="deleteRecord"><actions><service-call name="delete#${den}" in-map="context"/></actions>
+    <transition name="deleteRecord"><actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(den)"><message error="true">Entity ${den} is not available through this tool</message><return/></if>
+        <service-call name="delete#${den}" in-map="context"/></actions>
         <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/></transition>
     <transition name="getFormXml" read-only="true">
         <actions><script><![CDATA[
@@ -56,6 +62,8 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(aen) || org.moqui.util.WebUtilities.isRestrictedGenericEntity(den)">
+            <message error="true">Entity is not available through this tool</message><return/></if>
         <entity-find entity-name="${den}" list="entityValueList" offset="0" limit="50" cache="false">
             <search-form-inputs/></entity-find>
     </actions>

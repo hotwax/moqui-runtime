@@ -22,9 +22,13 @@ along with this software (see the LICENSE.md file). If not, see
     <transition name="find"><default-response url="."/></transition>
     <transition name="entityDetail"><default-response url="../../Entity/DataEdit/EntityDetail"/></transition>
 
-    <transition name="create"><actions><service-call name="create#${aen}" in-map="true"/></actions>
+    <transition name="create"><actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(aen)"><message error="true">Entity ${aen} is not available through this tool</message><return/></if>
+        <service-call name="create#${aen}" in-map="true"/></actions>
         <default-response url="."/></transition>
-    <transition name="deleteRecord"><actions><service-call name="delete#${aen}" in-map="context"/></actions>
+    <transition name="deleteRecord"><actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(aen)"><message error="true">Entity ${aen} is not available through this tool</message><return/></if>
+        <service-call name="delete#${aen}" in-map="context"/></actions>
         <default-response url="."/></transition>
     <transition name="getFormXml" read-only="true">
         <actions><script><![CDATA[
@@ -46,6 +50,7 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <actions>
+        <if condition="org.moqui.util.WebUtilities.isRestrictedGenericEntity(aen)"><message error="true">Entity ${aen} is not available through this tool</message><return/></if>
         <set field="aenDef" from="ec.entity.getEntityDefinition(aen)"/>
         <if condition="aenDef == null"><message error="true">Could not find entity with name: ${aen}</message><return/></if>
         <!-- get count of all records, don't require parameters if less than 1M -->

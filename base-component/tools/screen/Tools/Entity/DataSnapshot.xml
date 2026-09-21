@@ -16,7 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
         default-menu-title="Snapshots">
 
-    <transition name="exportSnapshot" begin-transaction="false">
+    <transition name="exportSnapshot" begin-transaction="false" authz-action="update">
         <actions>
             <script><![CDATA[
                 if (!entitiesToInclude) entitiesToInclude = null
@@ -33,25 +33,43 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
         <default-response url="."/>
     </transition>
-    <transition name="downloadSnapshot" begin-transaction="false" read-only="true">
-        <actions><script>ec.web.sendResourceResponse("db/snapshot/" + filename)</script></actions>
+    <transition name="downloadSnapshot" begin-transaction="false" read-only="true" authz-action="update">
+        <parameter name="filename"/>
+        <actions><script><![CDATA[
+            if (!org.moqui.util.WebUtilities.isSafeSinglePathSegment(filename)) {
+                ec.web.sendError(404, "Snapshot not found", null)
+            } else {
+                ec.web.sendResourceResponse("db/snapshot/" + filename)
+            }
+        ]]></script></actions>
         <default-response type="none"/>
     </transition>
-    <transition name="deleteSnapshot" begin-transaction="false">
-        <actions><script>ec.resource.getLocationReference("db/snapshot/" + filename).delete()</script></actions>
+    <transition name="deleteSnapshot" begin-transaction="false" authz-action="update">
+        <parameter name="filename"/>
+        <actions><script><![CDATA[
+            if (!org.moqui.util.WebUtilities.isSafeSinglePathSegment(filename)) {
+                ec.message.addError("Snapshot not found")
+            } else {
+                ec.resource.getLocationReference("db/snapshot/" + filename).delete()
+            }
+        ]]></script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="importSnapshot" begin-transaction="false">
+    <transition name="importSnapshot" begin-transaction="false" authz-action="update">
         <actions>
+            <if condition="!org.moqui.util.WebUtilities.isSafeSinglePathSegment(zipFilename)">
+                <message error="true">Snapshot not found</message><return/></if>
             <script>jobRunId = ec.service.job("ImportEntityDataSnapshot").parameters(context).run()</script>
-            <message>Started Import Entity Data Snapshot ${filename} (Job ID ${jobRunId})</message>
+            <message>Started Import Entity Data Snapshot ${zipFilename} (Job ID ${jobRunId})</message>
         </actions>
         <default-response url="."/>
     </transition>
-    <transition name="uploadSnapshot" begin-transaction="false">
+    <transition name="uploadSnapshot" begin-transaction="false" authz-action="update">
         <actions><script><![CDATA[
-            String filename = snapshotFile.getName()
-            if (!filename.endsWith(".zip")) { ec.message.addError("File ${filename} is not a zip file, should be a zip containing one or more xml data files"); return; }
+            String filename = org.moqui.util.WebUtilities.lastPathSegment(snapshotFile.getName())
+            if (!filename?.endsWith(".zip") || !org.moqui.util.WebUtilities.isSafeSinglePathSegment(filename)) {
+                ec.message.addError("File ${filename} is not a zip file, should be a zip containing one or more xml data files"); return
+            }
             File targetFile = new File((String) ec.factory.getRuntimePath() + '/db/snapshot/' + filename)
             if (!targetFile.parentFile.exists()) targetFile.parentFile.mkdirs()
             if (targetFile.exists()) { ec.message.addError("File ${filename} already exists"); return }
@@ -60,7 +78,7 @@ along with this software (see the LICENSE.md file). If not, see
         ]]></script></actions>
         <default-response url="."/>
     </transition>
-    <transition name="dropForeignKeys" begin-transaction="false">
+    <transition name="dropForeignKeys" begin-transaction="false" authz-action="all">
         <actions>
             <script>ec.entity.entityDbMeta.forceCheckExistingTables()</script>
             <set field="dropped" from="ec.entity.getEntityDbMeta().dropAllForeignKeys()"/>
@@ -68,7 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
         <default-response url="."/>
     </transition>
-    <transition name="createForeignKeys" begin-transaction="false">
+    <transition name="createForeignKeys" begin-transaction="false" authz-action="all">
         <actions>
             <set field="created" from="ec.entity.getEntityDbMeta().createForeignKeysForExistingTables()"/>
             <message>Created ${created} foreign keys</message>

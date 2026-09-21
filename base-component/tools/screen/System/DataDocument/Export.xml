@@ -16,7 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
         default-menu-title="Export" default-menu-index="3">
 
-    <transition name="DocumentExport.json" read-only="true">
+    <transition name="DocumentExport.json" read-only="true" authz-action="update">
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.impl.entity.EntityDataDocument

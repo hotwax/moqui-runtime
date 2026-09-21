@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <parameter name="serviceName"/>
 
-    <transition name="run" begin-transaction="false">
+    <transition name="run" begin-transaction="false" authz-action="all">
         <actions>
             <script>
                 org.moqui.context.ExecutionContext ec = context.ec
@@ -35,7 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
         <default-response url="." save-parameters="true"><parameter name="doingRun" value="Y"/></default-response>
     </transition>
-    <transition name="runJson" begin-transaction="false">
+    <transition name="runJson" begin-transaction="false" authz-action="all">
         <!-- Because the run transition doesn't actually return json and make things confusing when calling via rest -->
         <actions>
             <script>

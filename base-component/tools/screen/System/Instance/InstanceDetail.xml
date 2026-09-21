@@ -41,18 +41,18 @@ along with this software (see the LICENSE.md file). If not, see
     <transition name="deleteAppInstanceVol"><service-call name="delete#moqui.server.instance.AppInstanceVolume"/>
         <default-response url="."/></transition>
 
-    <transition name="provisionAppInstance"><service-call name="org.moqui.impl.InstanceServices.provision#AppInstance"/>
+    <transition name="provisionAppInstance" authz-action="all"><service-call name="org.moqui.impl.InstanceServices.provision#AppInstance"/>
         <default-response url="."/></transition>
-    <transition name="createAppDatabase"><service-call name="org.moqui.impl.InstanceServices.create#AppDatabase"/>
+    <transition name="createAppDatabase" authz-action="all"><service-call name="org.moqui.impl.InstanceServices.create#AppDatabase"/>
         <default-response url="."/></transition>
 
-    <transition name="initAppInstance"><service-call name="org.moqui.impl.InstanceServices.init#AppInstance"/>
+    <transition name="initAppInstance" authz-action="all"><service-call name="org.moqui.impl.InstanceServices.init#AppInstance"/>
         <default-response url="."/></transition>
-    <transition name="startAppInstance"><service-call name="org.moqui.impl.InstanceServices.start#AppInstance"/>
+    <transition name="startAppInstance" authz-action="all"><service-call name="org.moqui.impl.InstanceServices.start#AppInstance"/>
         <default-response url="."/></transition>
-    <transition name="stopAppInstance"><service-call name="org.moqui.impl.InstanceServices.stop#AppInstance"/>
+    <transition name="stopAppInstance" authz-action="all"><service-call name="org.moqui.impl.InstanceServices.stop#AppInstance"/>
         <default-response url="."/></transition>
-    <transition name="removeAppInstance"><service-call name="org.moqui.impl.InstanceServices.remove#AppInstance"/>
+    <transition name="removeAppInstance" authz-action="all"><service-call name="org.moqui.impl.InstanceServices.remove#AppInstance"/>
         <default-response url="."/></transition>
 
     <actions>

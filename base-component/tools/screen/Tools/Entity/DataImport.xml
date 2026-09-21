@@ -15,7 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
         default-menu-title="Import">
 
-    <transition name="load">
+    <transition name="load" authz-action="all">
         <actions><script><![CDATA[
             org.moqui.entity.EntityDataLoader edl = ec.entity.makeDataLoader()
             String source = ""
@@ -24,6 +24,10 @@ along with this software (see the LICENSE.md file). If not, see
                 if (components) edl.componentNameList(Arrays.asList(components.split(",")))
                 source = "Types: ${types?:'N/A'}, Components: ${components?:'N/A'}"
             } else if (location) {
+                if (org.moqui.util.WebUtilities.isProductionRemoteDataLoadBlocked((String) location)) {
+                    ec.message.addError("Remote data load location is not allowed when instance_purpose is production")
+                    return
+                }
                 edl.location(location)
                 source = location
             } else if (csvText) {
@@ -43,6 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
             if (dummyFks) edl.dummyFks(true)
             if (useTryInsert) edl.useTryInsert(true)
             if (hideNoActionFiles) edl.messageNoActionFiles(false)
+            edl.restrictSensitiveEntities(true)
 
             if (checkOnly) {
                 // do nothing, checkOnly handled in screen actions before render
@@ -191,6 +196,7 @@ along with this software (see the LICENSE.md file). If not, see
                     return
                 }
                 if (hideNoActionFiles) edl.messageNoActionFiles(false)
+                edl.restrictSensitiveEntities(true)
 
                 messageList = new LinkedList<String>()
                 diffInfoList = new LinkedList<Map<String, Object>>()
