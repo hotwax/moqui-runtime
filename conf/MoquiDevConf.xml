@@ -21,6 +21,12 @@
     <default-property name="entity_ds_password" value="moqui"/>
     -->
 
+    <!-- required for Solr search collections (see co.hotwax.solr.SearchUtil.prepareCollection):
+        must be unique per developer/instance to avoid collection name collisions on a shared Solr,
+        so replace the example value below rather than reusing it as-is:
+    <default-property name="ofbiz.instance.name" value="your-dev-name"/>
+    -->
+
     <cache-list warm-on-start="false">
         <!-- Development Mode - expires artifact cache entries; don't use these for production, load testing, etc -->
         <cache name="entity.definition" expire-time-idle="30"/>
