@@ -920,4 +920,32 @@ class ConfigApprovalPocTests extends Specification {
         lateErr.contains("can no longer be changed")
         fresh().reason == "needed for the nightly load"
     }
+
+    def "34 new change request screen service: held with its reason, break-glass applies at once, reason is required, unknown field refused"() {
+        given: makeJob("poc_j34")
+        def job = { ec.entity.find("moqui.service.job.ServiceJob").condition("jobName", "poc_j34").useCache(false).disableAuthz().one() }
+        def submit = { Map m -> ec.message.clearAll()
+            as_("alice") { ec.service.sync().name(SVC + "submit#ChangeRequest").parameters([jobName: "poc_j34"] + m).call() }
+            String e = ec.message.errorsString; ec.message.clearAll(); return e }
+        when:
+        String held = submit([fieldName: "paused", newValue: "Y", reason: "maintenance window"])
+        def reqs = ccrsFor("moqui.service.job.ServiceJob", [jobName: "poc_j34"])
+        then:
+        held == ""
+        job().paused != "Y"
+        reqs.size() == 1 && reqs[0].reason == "maintenance window" && reqs[0].statusId == "CcrPending"
+
+        when:
+        String noReason = submit([fieldName: "cronExpression", newValue: "0 0 3 * * ?", reason: "  "])
+        String badField = submit([fieldName: "jobName", newValue: "x", reason: "r"])
+        then:
+        noReason != "" && badField.contains("cannot be changed")
+
+        when:
+        String bg = submit([fieldName: "transactionTimeout", newValue: "600", reason: "prod fire", breakGlass: "Y"])
+        then:
+        bg == ""
+        job().transactionTimeout == 600
+        ccrsFor("moqui.service.job.ServiceJob", [jobName: "poc_j34"]).any { it.changeSourceEnumId == "CcsBreakGlass" }
+    }
 }

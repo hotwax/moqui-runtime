@@ -136,6 +136,30 @@
         </actions>
     </service>
 
+    <service verb="submit" noun="ChangeRequest" authenticate="true">
+        <description>The "New change request" screen: changes one guarded field of a job with a mandatory reason, through the normal
+            update service so the gate holds it (or, with the break-glass box ticked, lets it through and records it).</description>
+        <in-parameters>
+            <parameter name="jobName" required="true"/>
+            <parameter name="fieldName" required="true"><description>A guarded ServiceJob field.</description></parameter>
+            <parameter name="newValue" required="true"/>
+            <parameter name="reason" required="true"/>
+            <parameter name="breakGlass"/>
+            <parameter name="plannedFixDate" type="Timestamp"/>
+        </in-parameters>
+        <actions>
+            <if condition="!(fieldName in ['paused', 'cronExpression', 'fromDate', 'thruDate', 'repeatCount', 'transactionTimeout'])">
+                <return error="true" message="${fieldName} cannot be changed from this screen."/></if>
+            <if condition="!reason?.trim()"><return error="true" message="A reason is required."/></if>
+            <set field="changeMap" from="[jobName: jobName, (fieldName): newValue, _changeReason: reason.trim()]"/>
+            <if condition="plannedFixDate"><set field="changeMap._plannedFixDate" from="plannedFixDate"/></if>
+            <if condition="breakGlass == 'Y'"><set field="changeMap._breakGlass" value="Y"/></if>
+            <service-call name="update#moqui.service.job.ServiceJob" in-map="changeMap"/>
+            <if condition="!ec.message.hasError() &amp;&amp; breakGlass != 'Y' &amp;&amp; !ec.message.messages">
+                <message>Request sent for approval. You will get an email when it is decided.</message></if>
+        </actions>
+    </service>
+
     <service verb="apply" noun="ConfigChangeRequest" authenticate="true" allow-remote="false" transaction-timeout="300">
         <description>Replays an approved request: stale check, then the stored service call as the approver with the
             gate switched off for this call only. The replay runs in its own transaction so a failure rolls back the

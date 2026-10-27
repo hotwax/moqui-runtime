@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        default-menu-title="New request" default-menu-index="3">
+
+    <!-- goes through the normal update service, so the gate decides: held for approval, or applied and recorded for break-glass -->
+    <transition name="submit">
+        <service-call name="co.hotwax.configapproval.ConfigApprovalServices.submit#ChangeRequest"/>
+        <default-response url="../FindRequest"/>
+        <error-response url="."/>
+    </transition>
+
+    <widgets>
+        <label text="Change a job setting" type="h4"/>
+        <label text="Your change waits for an approver. The reason is required: approvers see it in the email and it goes into the daily digest." type="p"/>
+        <form-single name="NewRequestForm" transition="submit">
+            <field name="jobName"><default-field title="Job">
+                <drop-down>
+                    <entity-options key="${jobName}" text="${jobName} - ${description?:''}">
+                        <entity-find entity-name="moqui.service.job.ServiceJob"><order-by field-name="jobName"/></entity-find>
+                    </entity-options>
+                </drop-down>
+            </default-field></field>
+            <field name="fieldName"><default-field title="Setting">
+                <drop-down>
+                    <option key="paused" text="Paused (Y or N)"/>
+                    <option key="cronExpression" text="Schedule (cron expression)"/>
+                    <option key="fromDate" text="Start date (yyyy-MM-dd HH:mm:ss)"/>
+                    <option key="thruDate" text="End date (yyyy-MM-dd HH:mm:ss)"/>
+                    <option key="repeatCount" text="Repeat count"/>
+                    <option key="transactionTimeout" text="Transaction timeout (seconds)"/>
+                </drop-down>
+            </default-field></field>
+            <field name="newValue"><default-field title="New value"><text-line size="40"/></default-field></field>
+            <field name="reason"><default-field title="Reason (required)"><text-area rows="3" cols="60"/></default-field></field>
+            <field name="plannedFixDate"><default-field title="Planned fix (optional)"><date-time type="date-time"/></default-field></field>
+            <field name="breakGlass"><default-field title="Emergency: apply now (break-glass)">
+                <check><option key="Y" text="Apply immediately without approval. Approvers are told and it is flagged in the digest."/></check>
+            </default-field></field>
+            <field name="submitButton"><default-field title="Send"><submit/></default-field></field>
+        </form-single>
+    </widgets>
+</screen>
