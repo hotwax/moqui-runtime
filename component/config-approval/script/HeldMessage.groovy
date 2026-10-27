@@ -5,6 +5,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 Map shared = ((ExecutionContextImpl) ec).contextStack.getSharedMap()
 String held = shared.remove("ccr.heldMsg")
 if (held && ec.message.errors == [held]) {
-    ec.message.clearErrors()
+    // clearErrors() would keep the text as a red "danger" message; pushErrors() sets the error aside without showing it
+    ec.message.pushErrors()
     ec.message.addMessage(held)
 }

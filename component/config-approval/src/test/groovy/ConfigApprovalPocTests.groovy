@@ -970,12 +970,14 @@ class ConfigApprovalPocTests extends Specification {
         as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "8", _changeReason: "r"]).call() }
         boolean hadError = ec.message.hasError()
         String msg = ec.message.messagesString
+        int msgCount = ec.message.messages.size()
         ec.transaction.commit()
         ec.message.clearAll()
         def reqs = ccrsFor("moqui.service.job.ServiceJobParameter", pk)
         then:
         !hadError
         msg.contains("Request sent for approval")
+        msgCount == 1
         param() == null
         reqs.size() == 1
         reqs[0].diffJson.contains("poc_j35") && reqs[0].diffJson.contains("batchSize") && reqs[0].diffJson.contains("8")
