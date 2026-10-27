@@ -465,17 +465,18 @@ class ConfigApprovalPocTests extends Specification {
                 fromDate: new Timestamp(System.currentTimeMillis() - 86400000L)]).createOrUpdate()
         ec.artifactExecution.enableAuthz()
         when:
-        // alice is not in the group: the flag changes nothing, the pause is held as usual
-        callUpdate("alice", [jobName: "poc_j20a", paused: "Y", _changeReason: "urgent", _breakGlass: "Y"])
-        // dave is, but gives no reason: held
+        // without the flag the pause is held as usual, whoever asks
+        callUpdate("alice", [jobName: "poc_j20a", paused: "Y", _changeReason: "urgent"])
+        // the flag without a reason: held
         callUpdate("dave", [jobName: "poc_j20b", paused: "Y", _breakGlass: "Y"])
-        // dave with a reason: goes straight through
+        // with a reason it goes straight through
         ec.message.clearAll()
         callUpdate("dave", [jobName: "poc_j20c", paused: "Y", _breakGlass: "Y", _changeReason: "prod incident, runaway job"])
         def msgs = ec.message.messages
         def c = ccrs("poc_j20c")
         waitFor { ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_BREAK_GLASS").disableAuthz().useCache(false).list().any { it.subject.contains(c[0].requestId) } }
         def mail = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_BREAK_GLASS").disableAuthz().useCache(false).list().findAll { it.subject.contains(c[0].requestId) }
+        Map digest20 = as_("alice") { ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalDigestServices.get#ConfigChangeDigest").parameters([hours: 48]).call() }
         then:
         ccrs("poc_j20a")[0].statusId == "CcrPending" && job("poc_j20a").paused == "N"
         ccrs("poc_j20b")[0].statusId == "CcrPending" && job("poc_j20b").paused == "N"
@@ -485,6 +486,8 @@ class ConfigApprovalPocTests extends Specification {
         msgs.any { it.contains("Break-glass change applied") }
         mail.size() == 1
         mail[0].toAddresses.contains("bob@example.com")
+        digest20.digest.breakGlassChanges.any { it.requestId == c[0].requestId && it.reason.contains("runaway") }
+        digest20.digestText.contains("BREAK-GLASS")
         cleanup:
         ec.message.clearAll()
     }

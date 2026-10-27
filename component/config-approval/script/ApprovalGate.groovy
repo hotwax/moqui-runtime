@@ -121,8 +121,11 @@ if (gatePhase == "hold") {
         return
     }
     if (!diff) return
-    // break-glass: explicit (_breakGlass=Y), only for CONFIG_BREAK_GLASS members, and only with a reason. Anything else is held as usual.
-    boolean breakGlass = "Y".equals(breakGlassParam) && ec.user.isInGroup("CONFIG_BREAK_GLASS") && reasonParam
+    // break-glass: explicit (_breakGlass=Y) and only with a reason. Anything else is held as usual.
+    // anyone may use it for now, as long as they give a reason; the digest lists every use for review.
+    // set config.approval.breakglass.restrict=true to limit it to the CONFIG_BREAK_GLASS group again
+    boolean breakGlassAllowed = !"true".equals(System.getProperty("config.approval.breakglass.restrict")) || ec.user.isInGroup("CONFIG_BREAK_GLASS")
+    boolean breakGlass = "Y".equals(breakGlassParam) && breakGlassAllowed && reasonParam
     if (!breakGlass) held.each { String f, Object v -> parameters.remove(f) }
     else shared.put("ccr.breakglass", System.identityHashCode(parameters))   // tells the ungated-write EECA this direct write is accounted for
 

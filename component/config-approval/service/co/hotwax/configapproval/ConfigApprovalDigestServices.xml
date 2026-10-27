@@ -84,16 +84,21 @@
             List ungated = recent.findAll { it.changeSourceEnumId == "CcsUngated" }.collect {
                 [requestId: it.requestId, summary: it.summaryText, writtenBy: it.requestedByUserId, when: it.appliedDate?.toString(), changes: it.diffJson ? new JsonSlurper().parseText(it.diffJson) : []] }
 
-            digest = [windowHours: h, ungatedChanges: ungated, since: since.toString(), countsByStatus: counts, requestsInWindow: recent.size(), withoutReason: missingReason,
+            // emergency changes that skipped approval on purpose (break-glass): already applied, listed first so they are reviewed
+            List breakGlass = recent.findAll { it.changeSourceEnumId == "CcsBreakGlass" }.collect {
+                [requestId: it.requestId, summary: it.summaryText, by: it.requestedByUserId, reason: it.reason, when: it.appliedDate?.toString(), changes: it.diffJson ? new JsonSlurper().parseText(it.diffJson) : []] }
+
+            digest = [windowHours: h, breakGlassChanges: breakGlass, ungatedChanges: ungated, since: since.toString(), countsByStatus: counts, requestsInWindow: recent.size(), withoutReason: missingReason,
                     waitingForApproval: waiting, possiblyForgottenPauses: forgotten]
             StringBuilder sb = new StringBuilder("Config changes, last ${h}h: ${recent.size()} request(s)")
             if (counts) sb.append(" (").append(counts.collect { k, v -> "${v} ${k.replace('Ccr', '').toLowerCase()}" }.join(", ")).append(")")
             sb.append(".")
             if (missingReason) sb.append(" ${missingReason} had no reason given.")
+            for (b in breakGlass) sb.append("\nBREAK-GLASS (applied without approval, please review): ${b.summary} (CR ${b.requestId}) by ${b.by} - ${b.reason ?: 'no reason given'}")
             for (w in waiting) sb.append("\nWAITING ${w.waitingHours}h: ${w.summary} (CR ${w.requestId}) by ${w.requestedBy} - ${w.reason ?: 'no reason given'}")
             for (f in forgotten) sb.append("\nCHECK: job ${f.jobName} is still paused (CR ${f.requestId}, ${f.why}); paused by ${f.pausedBy}, reason: ${f.reason ?: 'none'}")
             for (u in ungated) sb.append("\nUNAPPROVED: ${u.summary} (CR ${u.requestId}) by ${u.writtenBy}")
-            if (!waiting && !forgotten && !ungated) sb.append(" Nothing needs attention.")
+            if (!waiting && !forgotten && !ungated && !breakGlass) sb.append(" Nothing needs attention.")
             digestText = sb.toString()
         ]]></script></actions>
     </service>
