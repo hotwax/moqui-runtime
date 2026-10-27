@@ -52,8 +52,16 @@
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"
             subject="Approval needed: ${summaryText} (CR ${requestId})"/>
+    <moqui.basic.email.EmailTemplate emailTemplateId="CCR_APPROVAL_REMINDER" description="Config change: still waiting for approval"
+            emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
+            bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"
+            subject="Reminder, still waiting: ${summaryText} (CR ${requestId})"/>
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_DECISION" description="Config change: decided or applied"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/Decision.xml"
             subject="${statusDescription}: ${summaryText} (CR ${requestId})"/>
+
+    <!-- expires and reminds every 15 minutes -->
+    <moqui.service.job.ServiceJob jobName="ConfigApproval_Sweep" description="Expire and remind pending config change requests"
+            serviceName="co.hotwax.configapproval.ConfigApprovalServices.run#ConfigApprovalSweep" cronExpression="0 0/15 * * * ?" paused="N"/>
 </entity-facade-xml>

@@ -185,7 +185,7 @@
             if (ccr == null) return
 
             Set<String> to = new LinkedHashSet<>()
-            if (emailTemplateId == "CCR_APPROVAL_REQUEST") {
+            if (emailTemplateId == "CCR_APPROVAL_REQUEST" || emailTemplateId == "CCR_APPROVAL_REMINDER") {
                 for (m in ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS")
                         .conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).disableAuthz().list()) {
                     if (m.userId == ccr.requestedByUserId) continue
@@ -215,6 +215,40 @@
             if (ec.message.hasError()) {
                 logger.warn("Email ${emailTemplateId} for config change ${requestId} failed: ${ec.message.errorsString}")
                 ec.message.clearErrors()
+            }
+        ]]></script></actions>
+    </service>
+
+    <service verb="run" noun="ConfigApprovalSweep" authenticate="anonymous-all" allow-remote="false">
+        <description>Scheduled (ServiceJob ConfigApproval_Sweep). Expires pending requests past their expire date, and reminds
+            approvers once about requests still waiting after config.approval.reminder.hours (default 24). Expiring never
+            changes the target record: the change was simply never approved.</description>
+        <out-parameters><parameter name="expiredCount" type="Integer"/><parameter name="remindedCount" type="Integer"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.entity.EntityCondition
+            String CCR = "co.hotwax.configapproval.ConfigChangeRequest"
+            Timestamp now = ec.user.nowTimestamp
+            expiredCount = 0; remindedCount = 0
+
+            for (r in ec.entity.find(CCR).condition("statusId", "CcrPending").condition("expireDate", EntityCondition.LESS_THAN, now)
+                    .forUpdate(true).disableAuthz().list()) {
+                r.statusId = "CcrExpired"; r.decidedDate = now
+                r.decisionComment = "Expired without a decision"
+                r.update()
+                expiredCount++
+                ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail")
+                        .parameters([requestId: r.requestId, emailTemplateId: "CCR_DECISION"]).disableAuthz().call()
+            }
+
+            int reminderHours = (System.getProperty("config.approval.reminder.hours") ?: "24") as int
+            Timestamp remindBefore = new Timestamp(now.time - reminderHours * 3600000L)
+            for (r in ec.entity.find(CCR).condition("statusId", "CcrPending").condition("reminderDate", null)
+                    .condition("requestedDate", EntityCondition.LESS_THAN_EQUAL_TO, remindBefore).forUpdate(true).disableAuthz().list()) {
+                r.reminderDate = now
+                r.update()
+                remindedCount++
+                ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail")
+                        .parameters([requestId: r.requestId, emailTemplateId: "CCR_APPROVAL_REMINDER"]).disableAuthz().call()
             }
         ]]></script></actions>
     </service>

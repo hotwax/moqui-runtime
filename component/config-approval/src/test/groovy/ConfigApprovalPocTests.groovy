@@ -419,4 +419,37 @@ class ConfigApprovalPocTests extends Specification {
         digest.digest.ungatedChanges.any { it.requestId == reqs[0].requestId }
         digest.digestText.contains("UNAPPROVED")
     }
+
+    def "19 sweep: an old pending request gets one reminder, an overdue one expires and the job stays untouched"() {
+        given:
+        makeJob("poc_j19a"); makeJob("poc_j19b")
+        callUpdate("alice", [jobName: "poc_j19a", paused: "Y", _changeReason: "r1"])
+        callUpdate("alice", [jobName: "poc_j19b", paused: "Y", _changeReason: "r2"])
+        String ridA = ccrs("poc_j19a")[0].requestId, ridB = ccrs("poc_j19b")[0].requestId
+        ec.artifactExecution.disableAuthz()
+        long hrs = 3600000L, now = System.currentTimeMillis()
+        // a: waiting 30h (past the 24h reminder, not expired); b: past its expire date
+        ec.entity.find(CCR).condition("requestId", ridA).one().set("requestedDate", new Timestamp(now - 30 * hrs)).update()
+        ec.entity.find(CCR).condition("requestId", ridB).one().set("expireDate", new Timestamp(now - hrs)).update()
+        ec.artifactExecution.enableAuthz()
+        when:
+        Map r1 = ec.service.sync().name(SVC + "run#ConfigApprovalSweep").call()
+        Map r2 = ec.service.sync().name(SVC + "run#ConfigApprovalSweep").call()   // second run must not remind again
+        def a = ccrs("poc_j19a")[0], b = ccrs("poc_j19b")[0]
+        then:
+        r1.expiredCount >= 1 && r1.remindedCount >= 1
+        r2.expiredCount == 0 && r2.remindedCount == 0
+        a.statusId == "CcrPending" && a.reminderDate != null
+        b.statusId == "CcrExpired"
+        job("poc_j19a").paused == "N" && job("poc_j19b").paused == "N"
+        // an expired request can no longer be approved
+        when:
+        ec.message.clearAll()
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: ridB]).call() }
+        then:
+        ec.message.hasError()
+        job("poc_j19b").paused == "N"
+        cleanup:
+        ec.message.clearAll()
+    }
 }

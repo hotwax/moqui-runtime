@@ -3,6 +3,8 @@
     <!-- master switch; when false the gate steps aside -->
     <default-property name="config.approval.enabled" value="true"/>
     <default-property name="config.approval.expire.hours" value="72"/>
+    <!-- approvers get one reminder after this many hours without a decision -->
+    <default-property name="config.approval.reminder.hours" value="24"/>
     <!-- false in v1: a missing reason is accepted but flagged -->
     <default-property name="config.approval.reason.strict" value="false"/>
 
