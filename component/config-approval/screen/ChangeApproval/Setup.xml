@@ -43,7 +43,7 @@
                         <order-by field-name="userId"/>
                     </entity-find>
                     <field name="userId"><default-field title="User"><display-entity entity-name="moqui.security.UserAccount" text="${userFullName?:username} (${username})"/></default-field></field>
-                    <field name="emailAddress"><default-field title="Email"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${emailAddress?:'(no email, will not be notified)'}"/></default-field></field>
+                    <field name="emailInfo"><default-field title="Email"><display text="${ec.entity.find('moqui.security.UserAccount').condition('userId', userId).disableAuthz().one()?.emailAddress ?: '(no email, will not be notified)'}"/></default-field></field>
                     <field name="fromDate"><default-field title="Since"><display format="yyyy-MM-dd"/></default-field></field>
                     <field name="remove"><default-field title=" "><link url="removeApprover" text="Remove" parameter-map="[userId:userId]" condition="isAdmin" confirmation="Remove this approver?"/></default-field></field>
                 </form-list>
