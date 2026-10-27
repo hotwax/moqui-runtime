@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Read-only views over ConfigChangeRequest for the admin screens' siblings: MCP tools and the AI daily summary.
+     parametersJson and originalJson are encrypted and may hold secrets, so nothing here ever returns them. -->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+
+    <service verb="get" noun="ConfigChangeRequests" authenticate="true">
+        <description>List config change requests, newest first. Never returns the stored parameters or original values.</description>
+        <in-parameters>
+            <parameter name="statusId"><description>CcrPending, CcrApplied, CcrRejected, CcrCancelled, CcrFailed, CcrExpired</description></parameter>
+            <parameter name="requestedByUserId"/>
+            <parameter name="entityName"/>
+            <parameter name="requestedDate_from" type="Timestamp"/>
+            <parameter name="requestedDate_thru" type="Timestamp"/>
+            <parameter name="pageSize" type="Integer" default-value="50"/>
+        </in-parameters>
+        <out-parameters><parameter name="requestList" type="List"/></out-parameters>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            def ef = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").orderBy("-requestedDate")
+            if (statusId) ef.condition("statusId", statusId)
+            if (requestedByUserId) ef.condition("requestedByUserId", requestedByUserId)
+            if (entityName) ef.condition("entityName", entityName)
+            if (requestedDate_from) ef.condition("requestedDate", org.moqui.entity.EntityCondition.GREATER_THAN_EQUAL_TO, requestedDate_from)
+            if (requestedDate_thru) ef.condition("requestedDate", org.moqui.entity.EntityCondition.LESS_THAN, requestedDate_thru)
+            ef.limit(Math.min((pageSize ?: 50) as int, 200))
+            requestList = []
+            for (ccr in ef.list()) {
+                requestList.add([requestId: ccr.requestId, statusId: ccr.statusId, summary: ccr.summaryText, entityName: ccr.entityName,
+                        recordKey: ccr.pkJson, requestedBy: ccr.requestedByUserId, requestedDate: ccr.requestedDate?.toString(),
+                        reason: ccr.reason, reasonMissing: ccr.reasonMissing, plannedFixDate: ccr.plannedFixDate?.toString(),
+                        decidedBy: ccr.decidedByUserId, decidedDate: ccr.decidedDate?.toString(), decisionComment: ccr.decisionComment,
+                        appliedDate: ccr.appliedDate?.toString(), expireDate: ccr.expireDate?.toString(), errorText: ccr.errorText,
+                        changes: ccr.diffJson ? new JsonSlurper().parseText(ccr.diffJson) : []])
+            }
+        ]]></script></actions>
+    </service>
+
+    <service verb="get" noun="ConfigChangeDigest" authenticate="true">
+        <description>Summary of config change activity for the last N hours (default 24) for the daily summary: counts by status,
+            what is waiting for approval and for how long, and approved pauses that look forgotten (planned fix date passed and the
+            job is still paused, or no fix date and paused for more than 3 days), and changes written directly to guarded fields without approval.</description>
+        <in-parameters><parameter name="hours" type="Integer" default-value="24"/></in-parameters>
+        <out-parameters>
+            <parameter name="digest" type="Map"/>
+            <parameter name="digestText"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            import org.moqui.entity.EntityCondition
+            Timestamp now = ec.user.nowTimestamp
+            int h = (hours ?: 24) as int
+            Timestamp since = new Timestamp(now.time - h * 3600000L)
+            String CCR = "co.hotwax.configapproval.ConfigChangeRequest"
+            def recent = ec.entity.find(CCR).condition("requestedDate", EntityCondition.GREATER_THAN_EQUAL_TO, since).orderBy("requestedDate").list()
+            Map counts = [:]
+            for (r in recent) counts.put(r.statusId, (counts.get(r.statusId) ?: 0) + 1)
+            int missingReason = recent.count { it.reasonMissing == "Y" }
+
+            List waiting = []
+            for (r in ec.entity.find(CCR).condition("statusId", "CcrPending").orderBy("requestedDate").list()) {
+                waiting.add([requestId: r.requestId, summary: r.summaryText, requestedBy: r.requestedByUserId, reason: r.reason,
+                        waitingHours: ((now.time - r.requestedDate.time) / 3600000L) as long, expireDate: r.expireDate?.toString()])
+            }
+
+            // approved pauses that may have been forgotten: still paused now, and either overdue or open-ended for too long
+            List forgotten = []
+            for (r in ec.entity.find(CCR).condition("statusId", "CcrApplied").condition("entityName", "moqui.service.job.ServiceJob")
+                    .orderBy("-appliedDate").list()) {
+                def diff = r.diffJson ? new JsonSlurper().parseText(r.diffJson) : []
+                if (!diff.any { it.field == "paused" && it.newValue == "Y" }) continue
+                def pk = new JsonSlurper().parseText(r.pkJson)
+                def job = ec.entity.find("moqui.service.job.ServiceJob").condition("jobName", pk.jobName).useCache(false).one()
+                if (job == null || job.paused != "Y") continue
+                // a later request may already have resumed/re-paused it; only report the latest applied pause per job
+                if (forgotten.any { it.jobName == pk.jobName }) continue
+                boolean overdue = r.plannedFixDate != null && r.plannedFixDate.before(now)
+                boolean openEnded = r.plannedFixDate == null && r.appliedDate != null && (now.time - r.appliedDate.time) > 3 * 86400000L
+                if (overdue || openEnded) forgotten.add([jobName: pk.jobName, requestId: r.requestId, pausedBy: r.requestedByUserId, approvedBy: r.decidedByUserId,
+                        reason: r.reason, plannedFixDate: r.plannedFixDate?.toString(), appliedDate: r.appliedDate?.toString(),
+                        why: overdue ? "planned fix date has passed" : "paused for more than 3 days with no planned fix date"])
+            }
+
+            // writes that skipped the gate (direct entity writes): already applied, so these are for review, not approval
+            List ungated = recent.findAll { it.changeSourceEnumId == "CcsUngated" }.collect {
+                [requestId: it.requestId, summary: it.summaryText, writtenBy: it.requestedByUserId, when: it.appliedDate?.toString(), changes: it.diffJson ? new JsonSlurper().parseText(it.diffJson) : []] }
+
+            digest = [windowHours: h, ungatedChanges: ungated, since: since.toString(), countsByStatus: counts, requestsInWindow: recent.size(), withoutReason: missingReason,
+                    waitingForApproval: waiting, possiblyForgottenPauses: forgotten]
+            StringBuilder sb = new StringBuilder("Config changes, last ${h}h: ${recent.size()} request(s)")
+            if (counts) sb.append(" (").append(counts.collect { k, v -> "${v} ${k.replace('Ccr', '').toLowerCase()}" }.join(", ")).append(")")
+            sb.append(".")
+            if (missingReason) sb.append(" ${missingReason} had no reason given.")
+            for (w in waiting) sb.append("\nWAITING ${w.waitingHours}h: ${w.summary} (CR ${w.requestId}) by ${w.requestedBy} - ${w.reason ?: 'no reason given'}")
+            for (f in forgotten) sb.append("\nCHECK: job ${f.jobName} is still paused (CR ${f.requestId}, ${f.why}); paused by ${f.pausedBy}, reason: ${f.reason ?: 'none'}")
+            for (u in ungated) sb.append("\nUNAPPROVED: ${u.summary} (CR ${u.requestId}) by ${u.writtenBy}")
+            if (!waiting && !forgotten && !ungated) sb.append(" Nothing needs attention.")
+            digestText = sb.toString()
+        ]]></script></actions>
+    </service>
+</services>

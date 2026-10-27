@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MCP tool declarations for config-approval (same format as oms.mcp.xml). Read-only: approving stays a human action in the
+     Change Approval screens or the email link, so no mutating tool is exposed here. -->
+<mcp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="component://moqui-ai/xsd/mcp-api-1.xsd"
+     name="config-approval" display-name="Config Change Approval" version="1.0.0"
+     description="See who asked to change sensitive configuration (job pauses, schedules, parameters), why, and what is still waiting for approval.">
+
+    <tool name="get_config_change_digest" title="Get Config Change Digest" effect="read"
+          description="Summary of configuration change activity for the last N hours (default 24): how many change requests were
+              made and decided, what is still waiting for approval and for how long, and approved job pauses that look forgotten
+              (planned fix date passed and the job is still paused, or paused for days with no fix date). Use this for the daily
+              summary. digestText is ready to quote; digest has the same data as structure.">
+        <service name="co.hotwax.configapproval.ConfigApprovalDigestServices.get#ConfigChangeDigest"/>
+        <parameter name="hours"/>
+    </tool>
+
+    <tool name="get_config_change_requests" title="Get Config Change Requests" effect="read"
+          description="List configuration change requests, newest first, with the requester's reason, planned fix date, decision and
+              the field-by-field change. Filter by statusId (CcrPending, CcrApplied, CcrRejected, CcrCancelled, CcrFailed, CcrExpired),
+              requestedByUserId, entityName or requestedDate_from / requestedDate_thru. Stored secrets are never returned.">
+        <service name="co.hotwax.configapproval.ConfigApprovalDigestServices.get#ConfigChangeRequests"/>
+        <parameter name="statusId"/>
+        <parameter name="requestedByUserId"/>
+        <parameter name="entityName"/>
+        <parameter name="requestedDate_from"/>
+        <parameter name="requestedDate_thru"/>
+        <parameter name="pageSize"/>
+    </tool>
+</mcp>

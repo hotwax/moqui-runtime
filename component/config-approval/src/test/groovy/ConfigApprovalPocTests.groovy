@@ -28,7 +28,7 @@ class ConfigApprovalPocTests extends Specification {
                 .setAll([userGroupId: "POC_USERS", userId: "poc_" + u, fromDate: new Timestamp(System.currentTimeMillis() - 86400000L)]).createOrUpdate()
         ec.entity.makeValue("moqui.security.ArtifactGroup").setAll([artifactGroupId: "POC_ALLOW_ALL"]).createOrUpdate()
         [[AT_ENTITY: "moqui.service.job.ServiceJob"], [AT_ENTITY: "co.hotwax.configapproval.ConfigChangeRequest"],
-         [AT_SERVICE: "update#moqui.service.job.ServiceJob"], [AT_SERVICE: "co.hotwax.configapproval.ConfigApprovalServices.*"], [AT_SERVICE: "co.hotwax.job.JobServices.*"], [AT_XML_SCREEN: "component://config-approval/screen/ChangeApproval.*"]].each { Map m ->
+         [AT_SERVICE: "update#moqui.service.job.ServiceJob"], [AT_SERVICE: "co.hotwax.configapproval.*"], [AT_SERVICE: "co.hotwax.job.JobServices.*"], [AT_XML_SCREEN: "component://config-approval/screen/ChangeApproval.*"]].each { Map m ->
             ec.entity.makeValue("moqui.security.ArtifactGroupMember").setAll([artifactGroupId: "POC_ALLOW_ALL", artifactTypeEnumId: m.keySet().first(),
                     artifactName: m.values().first(), nameIsPattern: m.values().first().endsWith("*") ? "Y" : "N", inheritAuthz: "Y"]).createOrUpdate()
         }
@@ -370,5 +370,53 @@ class ConfigApprovalPocTests extends Specification {
         !asApprover.contains("CancelForm")
         !asMaker.contains("ApproveDialog")
         asMaker.contains("CancelForm")
+    }
+
+    def "17 digest and list services (MCP read tools): waiting and forgotten pauses show up, secrets never do"() {
+        given:
+        makeJob("poc_j17a"); makeJob("poc_j17b")
+        // a: approved pause whose planned fix date has passed -> forgotten; b: still waiting
+        callUpdate("alice", [jobName: "poc_j17a", paused: "Y", _changeReason: "migration", _plannedFixDate: "2026-10-01 10:00:00"])
+        String ridA = ccrs("poc_j17a")[0].requestId
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: ridA]).call() }
+        callUpdate("alice", [jobName: "poc_j17b", paused: "Y", _changeReason: "upgrade"])
+        String ridB = ccrs("poc_j17b")[0].requestId
+        when:
+        Map digest = as_("alice") { ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalDigestServices.get#ConfigChangeDigest").parameters([hours: 48]).call() }
+        Map pendingList = as_("alice") { ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalDigestServices.get#ConfigChangeRequests").parameters([statusId: "CcrPending"]).call() }
+        def tools = new groovy.xml.XmlSlurper().parse(new File("component/config-approval/service/config-approval.mcp.xml")).tool.collect { it.@name.text() }
+        then:
+        digest.digest.waitingForApproval.any { it.requestId == ridB }
+        digest.digest.possiblyForgottenPauses.any { it.jobName == "poc_j17a" && it.why.contains("planned fix date") }
+        !digest.digest.possiblyForgottenPauses.any { it.jobName == "poc_j17b" }
+        digest.digestText.contains("CHECK: job poc_j17a")
+        digest.digestText.contains("WAITING")
+        pendingList.requestList.any { it.requestId == ridB && it.reason == "upgrade" && it.changes[0].field == "paused" }
+        !pendingList.requestList.any { it.containsKey("parametersJson") || it.containsKey("originalJson") }
+        tools.sort() == ["get_config_change_digest", "get_config_change_requests"]
+    }
+
+    def "18 a direct entity write to a guarded field (no service gate) is recorded as ungated and shows in the digest"() {
+        given:
+        makeJob("poc_j18")
+        when:
+        as_("alice") {
+            ec.entity.find("moqui.service.job.ServiceJob").condition("jobName", "poc_j18").useCache(false).one().set("paused", "Y").update(); [:]
+        }
+        // a direct write that changes only an unguarded field records nothing
+        as_("alice") {
+            ec.entity.find("moqui.service.job.ServiceJob").condition("jobName", "poc_j18").useCache(false).one().set("description", "x").update(); [:]
+        }
+        def reqs = ccrs("poc_j18")
+        Map digest = as_("alice") { ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalDigestServices.get#ConfigChangeDigest").parameters([hours: 48]).call() }
+        then:
+        job("poc_j18").paused == "Y"
+        reqs.size() == 1
+        reqs[0].changeSourceEnumId == "CcsUngated"
+        reqs[0].statusId == "CcrApplied"
+        reqs[0].requestedByUserId == "poc_alice"
+        reqs[0].diffJson.contains('"newValue":"Y"')
+        digest.digest.ungatedChanges.any { it.requestId == reqs[0].requestId }
+        digest.digestText.contains("UNAPPROVED")
     }
 }

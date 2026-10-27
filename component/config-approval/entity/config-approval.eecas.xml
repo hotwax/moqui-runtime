@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Detects changes to guarded fields that bypassed the service gate (see script/UngatedWrite.groovy). Add one rule per guarded entity. -->
+<eecas xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-eca-3.xsd">
+    <eeca id="CcrUngated_ServiceJob" entity="moqui.service.job.ServiceJob" on-update="true" run-on-error="false" get-original-value="true" get-entire-entity="true">
+        <actions><set field="eecaEntityName" value="moqui.service.job.ServiceJob"/><script location="component://config-approval/script/UngatedWrite.groovy"/></actions>
+    </eeca>
+</eecas>
