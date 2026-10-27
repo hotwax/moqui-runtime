@@ -625,4 +625,35 @@ class ConfigApprovalPocTests extends Specification {
         ungated.size() == 1
         ungated[0].diffJson.contains('"newValue":"9"')
     }
+
+    def "26 ServiceJob schedule fields: cron, dates and repeat count are held; wrapper too; an unchanged value is not"() {
+        given: makeJob("poc_j26")
+        when:
+        ec.message.clearAll()
+        callUpdate("alice", [jobName: "poc_j26", cronExpression: "0 0 3 * * ?", repeatCount: 5, description: "kept", _changeReason: "move to night"])
+        callUpdate("alice", [jobName: "poc_j26", cronExpression: "0 0 * * * ?"])   // same as current: nothing to hold
+        def reqs = ccrs("poc_j26")
+        then:
+        ec.message.errors.isEmpty()
+        job("poc_j26").cronExpression == "0 0 * * * ?"
+        job("poc_j26").repeatCount == null
+        job("poc_j26").description == "kept"
+        reqs.size() == 1
+        reqs[0].diffJson.contains("cronExpression") && reqs[0].diffJson.contains("repeatCount")
+
+        when: "through the wrapper, with a date; different fields so the first request stays"
+        as_("alice") { ec.service.sync().name("co.hotwax.job.JobServices.update#ServiceJob")
+                .parameters([jobName: "poc_j26", thruDate: "2026-12-31 00:00:00", _changeReason: "freeze end"]).call() }
+        def all = ccrs("poc_j26")
+        then:
+        job("poc_j26").thruDate == null
+        all.size() == 2
+        all.every { it.statusId == "CcrPending" }
+
+        when:
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: all[0].requestId]).call() }
+        then:
+        job("poc_j26").cronExpression == "0 0 3 * * ?"
+        job("poc_j26").repeatCount == 5
+    }
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- POC seed: status flow, change source/type, ONE guarded field (ServiceJob.paused), groups, email templates -->
+<!-- POC seed: status flow, change source/type, guarded fields, groups, email templates -->
 <entity-facade-xml type="seed">
     <moqui.basic.StatusType statusTypeId="ConfigChangeRequest" description="Config Change Request"/>
     <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrPending"   sequenceNum="1" description="Pending approval"/>
@@ -32,6 +32,10 @@
     <!-- Guarded fields. enumCode = Entity.field. optionIndicator Y = secret. optionValue N = area switched off -->
     <moqui.basic.EnumerationType enumTypeId="ConfigApprovalField" description="Fields that need approval to change"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjPaused" enumCode="moqui.service.job.ServiceJob.paused" description="Job on/off"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjCron" enumCode="moqui.service.job.ServiceJob.cronExpression" description="Job schedule (cron)"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjFrom" enumCode="moqui.service.job.ServiceJob.fromDate" description="Job runs from"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjThru" enumCode="moqui.service.job.ServiceJob.thruDate" description="Job runs until"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjRepeat" enumCode="moqui.service.job.ServiceJob.repeatCount" description="Job repeat count"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjpValue" enumCode="moqui.service.job.ServiceJobParameter.parameterValue" description="Job parameter value"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrUrl" enumCode="moqui.service.message.SystemMessageRemote.sendUrl" description="Remote send URL"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrRUrl" enumCode="moqui.service.message.SystemMessageRemote.receiveUrl" description="Remote receive URL"/>
