@@ -32,6 +32,16 @@
     <!-- Guarded fields. enumCode = Entity.field. optionIndicator Y = secret. optionValue N = area switched off -->
     <moqui.basic.EnumerationType enumTypeId="ConfigApprovalField" description="Fields that need approval to change"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjPaused" enumCode="moqui.service.job.ServiceJob.paused" description="Job on/off"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjpValue" enumCode="moqui.service.job.ServiceJobParameter.parameterValue" description="Job parameter value"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrUrl" enumCode="moqui.service.message.SystemMessageRemote.sendUrl" description="Remote send URL"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrRUrl" enumCode="moqui.service.message.SystemMessageRemote.receiveUrl" description="Remote receive URL"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrUser" enumCode="moqui.service.message.SystemMessageRemote.username" description="Remote username"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrPw" enumCode="moqui.service.message.SystemMessageRemote.password" optionIndicator="Y" description="Remote password"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrPrivKey" enumCode="moqui.service.message.SystemMessageRemote.privateKey" optionIndicator="Y" description="Remote private key"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrPubKey" enumCode="moqui.service.message.SystemMessageRemote.publicKey" description="Remote public key"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrRPubKey" enumCode="moqui.service.message.SystemMessageRemote.remotePublicKey" description="Remote's public key"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrSecret" enumCode="moqui.service.message.SystemMessageRemote.sharedSecret" optionIndicator="Y" description="Remote shared secret"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrSSecret" enumCode="moqui.service.message.SystemMessageRemote.sendSharedSecret" optionIndicator="Y" description="Remote send shared secret"/>
 
     <moqui.security.UserGroup userGroupId="CONFIG_APPROVERS" description="Config change approvers"/>
     <moqui.security.UserGroup userGroupId="CONFIG_BREAK_GLASS" description="Config change break-glass (on-call leads)"/>

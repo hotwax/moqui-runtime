@@ -20,7 +20,9 @@
             int expireHours = (System.getProperty("config.approval.expire.hours") ?: "72") as int
             String statusId = changeSourceEnumId == "CcsApproval" ? "CcrPending" : "CcrApplied"
 
-            Set newFields = ((Map) new JsonSlurper().parseText(parametersJson)).keySet()
+            // the key fields are in every request for a record, so only the changed fields decide what supersedes what
+            Set pkKeys = ((Map) new JsonSlurper().parseText(pkJson)).keySet()
+            Set newFields = new HashSet(((Map) new JsonSlurper().parseText(parametersJson)).keySet()); newFields.removeAll(pkKeys)
             String ccrId = ec.entity.sequencedIdPrimary("co.hotwax.configapproval.ConfigChangeRequest", null, null)
             ec.entity.makeValue("co.hotwax.configapproval.ConfigChangeRequest").setAll([
                     requestId: ccrId, changeSourceEnumId: changeSourceEnumId, changeTypeEnumId: changeTypeEnumId,
@@ -35,7 +37,7 @@
             if (statusId == "CcrPending") {
                 for (older in ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("entityName", entityName)
                         .condition("pkJson", pkJson).condition("statusId", "CcrPending").condition("requestId", "!=", ccrId).forUpdate(true).list()) {
-                    Set oldFields = ((Map) new JsonSlurper().parseText(older.parametersJson)).keySet()
+                    Set oldFields = new HashSet(((Map) new JsonSlurper().parseText(older.parametersJson)).keySet()); oldFields.removeAll(pkKeys)
                     if (oldFields.disjoint(newFields)) continue
                     older.set("statusId", "CcrCancelled"); older.set("supersededById", ccrId)
                     older.set("decisionComment", "Superseded by " + ccrId); older.update()

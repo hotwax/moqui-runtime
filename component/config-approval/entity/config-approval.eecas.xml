@@ -4,4 +4,10 @@
     <eeca id="CcrUngated_ServiceJob" entity="moqui.service.job.ServiceJob" on-update="true" run-on-error="false" get-original-value="true" get-entire-entity="true">
         <actions><set field="eecaEntityName" value="moqui.service.job.ServiceJob"/><script location="component://config-approval/script/UngatedWrite.groovy"/></actions>
     </eeca>
+    <eeca id="CcrUngated_ServiceJobParameter" entity="moqui.service.job.ServiceJobParameter" on-update="true" run-on-error="false" get-original-value="true" get-entire-entity="true">
+        <actions><set field="eecaEntityName" value="moqui.service.job.ServiceJobParameter"/><script location="component://config-approval/script/UngatedWrite.groovy"/></actions>
+    </eeca>
+    <eeca id="CcrUngated_SystemMessageRemote" entity="moqui.service.message.SystemMessageRemote" on-update="true" run-on-error="false" get-original-value="true" get-entire-entity="true">
+        <actions><set field="eecaEntityName" value="moqui.service.message.SystemMessageRemote"/><script location="component://config-approval/script/UngatedWrite.groovy"/></actions>
+    </eeca>
 </eecas>

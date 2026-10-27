@@ -33,6 +33,61 @@
         </actions>
     </seca>
 
+    <!-- More guarded entities. REST PUT on SystemMessageRemote runs store#, and JobServices.update#ServiceJob stores job
+         parameters through store#ServiceJobParameter, so both verbs are gated. Only changes to existing records are held. -->
+    <seca id="CcrHold_SjParamUpdate" service="update#moqui.service.job.ServiceJobParameter" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="update#moqui.service.job.ServiceJobParameter"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SjParamUpdate" service="update#moqui.service.job.ServiceJobParameter" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SjParamStore" service="store#moqui.service.job.ServiceJobParameter" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="store#moqui.service.job.ServiceJobParameter"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SjParamStore" service="store#moqui.service.job.ServiceJobParameter" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SmrUpdate" service="update#moqui.service.message.SystemMessageRemote" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="update#moqui.service.message.SystemMessageRemote"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SmrUpdate" service="update#moqui.service.message.SystemMessageRemote" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SmrStore" service="store#moqui.service.message.SystemMessageRemote" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="store#moqui.service.message.SystemMessageRemote"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SmrStore" service="store#moqui.service.message.SystemMessageRemote" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+
     <!-- The request is created inside the caller's transaction (nested call), where post-commit fires BEFORE the real
          commit. tx-commit registers on the transaction itself and runs after it commits, in its own thread and
          transaction, so the email sees the committed row and a mail failure can never roll back the maker's edit. -->

@@ -28,7 +28,10 @@ class ConfigApprovalPocTests extends Specification {
                 .setAll([userGroupId: "POC_USERS", userId: "poc_" + u, fromDate: new Timestamp(System.currentTimeMillis() - 86400000L)]).createOrUpdate()
         ec.entity.makeValue("moqui.security.ArtifactGroup").setAll([artifactGroupId: "POC_ALLOW_ALL"]).createOrUpdate()
         [[AT_ENTITY: "moqui.service.job.ServiceJob"], [AT_ENTITY: "co.hotwax.configapproval.ConfigChangeRequest"],
-         [AT_SERVICE: "update#moqui.service.job.ServiceJob"], [AT_SERVICE: "co.hotwax.configapproval.*"], [AT_SERVICE: "co.hotwax.job.JobServices.*"], [AT_XML_SCREEN: "component://config-approval/screen/ChangeApproval.*"]].each { Map m ->
+         [AT_SERVICE: "update#moqui.service.job.ServiceJob"],
+         [AT_ENTITY: "moqui.service.job.ServiceJobParameter"], [AT_ENTITY: "moqui.service.message.SystemMessageRemote"],
+         [AT_SERVICE: "update#moqui.service.job.ServiceJobParameter"], [AT_SERVICE: "store#moqui.service.job.ServiceJobParameter"],
+         [AT_SERVICE: "update#moqui.service.message.SystemMessageRemote"], [AT_SERVICE: "store#moqui.service.message.SystemMessageRemote"], [AT_SERVICE: "co.hotwax.configapproval.*"], [AT_SERVICE: "co.hotwax.job.JobServices.*"], [AT_XML_SCREEN: "component://config-approval/screen/ChangeApproval.*"]].each { Map m ->
             ec.entity.makeValue("moqui.security.ArtifactGroupMember").setAll([artifactGroupId: "POC_ALLOW_ALL", artifactTypeEnumId: m.keySet().first(),
                     artifactName: m.values().first(), nameIsPattern: m.values().first().endsWith("*") ? "Y" : "N", inheritAuthz: "Y"]).createOrUpdate()
         }
@@ -531,5 +534,95 @@ class ConfigApprovalPocTests extends Specification {
         aliceList.contains("poc_j17b")
         aliceDetail.contains("upgrade") && aliceDetail.contains("CancelForm")
         bobList.contains("poc_j17b")
+    }
+
+    private List<EntityValue> ccrsFor(String entityName, Map pk) {
+        ec.entity.find(CCR).condition("entityName", entityName).condition("pkJson", groovy.json.JsonOutput.toJson(new TreeMap(pk)))
+                .orderBy("requestedDate").disableAuthz().useCache(false).list()
+    }
+
+    def "23 SystemMessageRemote: endpoint and credential changes (store# like REST PUT, and update#) are held, secrets never shown, approved change replays"() {
+        given:
+        ec.artifactExecution.disableAuthz()
+        ec.entity.makeValue("moqui.service.message.SystemMessageRemote").setAll([systemMessageRemoteId: "POC_R1", description: "poc remote",
+                sendUrl: "https://old.example.com/send", username: "svc", password: "oldSecretPw"]).createOrUpdate()
+        ec.artifactExecution.enableAuthz()
+        Map pk = [systemMessageRemoteId: "POC_R1"]
+        def remote = { ec.entity.find("moqui.service.message.SystemMessageRemote").condition(pk).useCache(false).disableAuthz().one() }
+        when:
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("store#moqui.service.message.SystemMessageRemote")
+                .parameters(pk + [description: "renamed", sendUrl: "https://new.example.com/send", password: "newSecretPw", _changeReason: "vendor moved endpoint"]).call() }
+        def reqs = ccrsFor("moqui.service.message.SystemMessageRemote", pk)
+        then:
+        ec.message.errors.isEmpty()
+        remote().description == "renamed"
+        remote().sendUrl == "https://old.example.com/send"
+        remote().password == "oldSecretPw"
+        reqs.size() == 1
+        reqs[0].statusId == "CcrPending"
+        reqs[0].reason == "vendor moved endpoint"
+        reqs[0].diffJson.contains("new.example.com")
+        !reqs[0].diffJson.contains("newSecretPw") && !reqs[0].diffJson.contains("oldSecretPw")
+        reqs[0].diffJson.contains("(changed)")
+
+        when:
+        as_("alice") { ec.service.sync().name("update#moqui.service.message.SystemMessageRemote")
+                .parameters(pk + [username: "svc2", _changeReason: "rotate user"]).call() }
+        def reqs2 = ccrsFor("moqui.service.message.SystemMessageRemote", pk)
+        then:
+        remote().username == "svc"
+        reqs2.size() == 2
+        reqs2.every { it.statusId == "CcrPending" }   // different fields of the same record: no supersede
+
+        when:
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs[0].requestId]).call() }
+        then:
+        ec.entity.find(CCR).condition("requestId", reqs[0].requestId).disableAuthz().useCache(false).one().statusId == "CcrApplied"
+        remote().sendUrl == "https://new.example.com/send"
+        remote().password == "newSecretPw"
+        remote().username == "svc"
+    }
+
+    def "24 ServiceJobParameter: value change is held via update#, via the job wrapper, and a direct write is flagged ungated"() {
+        given:
+        makeJob("poc_j24")
+        ec.artifactExecution.disableAuthz()
+        ec.entity.makeValue("moqui.service.job.ServiceJobParameter").setAll([jobName: "poc_j24", parameterName: "batchSize", parameterValue: "100"]).createOrUpdate()
+        ec.artifactExecution.enableAuthz()
+        Map pk = [jobName: "poc_j24", parameterName: "batchSize"]
+        def pval = { ec.entity.find("moqui.service.job.ServiceJobParameter").condition(pk).useCache(false).disableAuthz().one().parameterValue }
+        when:
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("update#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "5000", _changeReason: "bigger batches"]).call() }
+        def reqs = ccrsFor("moqui.service.job.ServiceJobParameter", pk)
+        then:
+        ec.message.errors.isEmpty()
+        pval() == "100"
+        reqs.size() == 1
+        reqs[0].reason == "bigger batches"
+        reqs[0].diffJson.contains('"oldValue":"100"') && reqs[0].diffJson.contains('"newValue":"5000"')
+
+        when: "the same edit through the maarg-util wrapper (REST PUT /serviceJobs/{jobName}) is held too"
+        as_("alice") { ec.service.sync().name("co.hotwax.job.JobServices.update#ServiceJob")
+                .parameters([jobName: "poc_j24", serviceJobParameters: [[parameterName: "batchSize", parameterValue: "7"]]]).call() }
+        then:
+        ec.message.errors.isEmpty()
+        pval() == "100"
+        ccrsFor("moqui.service.job.ServiceJobParameter", pk).size() == 2
+
+        when:
+        def both = ccrsFor("moqui.service.job.ServiceJobParameter", pk)
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: both[1].requestId]).call() }
+        then: "the wrapper request replaced the older one for the same field, and approving it applies the wrapper's value"
+        both[0].statusId == "CcrCancelled"
+        pval() == "7"
+
+        when: "a direct entity write skips the gate"
+        as_("alice") { ec.entity.find("moqui.service.job.ServiceJobParameter").condition(pk).useCache(false).one().set("parameterValue", "9").update(); [:] }
+        def ungated = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeSourceEnumId == "CcsUngated" }
+        then:
+        ungated.size() == 1
+        ungated[0].diffJson.contains('"newValue":"9"')
     }
 }
