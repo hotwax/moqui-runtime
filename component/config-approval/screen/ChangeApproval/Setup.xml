@@ -12,6 +12,15 @@
         <set field="isAdmin" from="ec.user.isInGroup('ADMIN')"/>
         <set field="expireHours" from="System.getProperty('config.approval.expire.hours') ?: '72'"/>
         <set field="gateOn" from="System.getProperty('config.approval.enabled') != 'false' ? 'On' : 'Off (config.approval.enabled=false)'"/>
+        <script><![CDATA[
+            def members = ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS")
+                    .conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).disableAuthz().list()
+            List<String> warns = []
+            if (members.size() < 2) warns << "Only ${members.size()} approver(s): nobody can approve a request made by the only approver, so it would wait until it expires. Add a second approver."
+            List<String> noMail = members.findAll { !ec.entity.find("moqui.security.UserAccount").condition("userId", it.userId).disableAuthz().one()?.emailAddress }.collect { it.userId as String }
+            if (noMail) warns << "These approvers have no email address and will not be told about new requests: ${noMail.join(', ')}."
+            approverWarning = warns.join(" ")
+        ]]></script>
     </actions>
 
     <widgets>
@@ -26,6 +35,7 @@
             <box-header title="Approvers"/>
             <box-body>
                 <label text="Members of the CONFIG_APPROVERS group. An approver cannot approve their own request." type="p"/>
+                <label text="${approverWarning}" type="p" condition="approverWarning" style="text-danger"/>
                 <form-list name="ApproverList" list="approverList" skip-form="true">
                     <entity-find entity-name="moqui.security.UserGroupMember" list="approverList">
                         <date-filter/>

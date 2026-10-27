@@ -322,7 +322,7 @@
                 String addr = ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.requestedByUserId).disableAuthz().one()?.emailAddress
                 if (addr) to.add(addr)
             }
-            if (!to) { logger.info("No email recipients for config change ${requestId} template ${emailTemplateId}"); return }
+            if (!to) { ec.logger.warn("No email recipients for config change ${requestId} template ${emailTemplateId} (no other approver, or approvers without an email address)"); return }
 
             def status = ec.entity.find("moqui.basic.StatusItem").condition("statusId", ccr.statusId).one()
             def requester = ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.requestedByUserId).disableAuthz().one()
@@ -344,7 +344,7 @@
                     .parameters([emailTemplateId: emailTemplateId, toAddresses: to.join(","), bodyParameters: bodyParameters,
                                  createEmailMessage: true]).disableAuthz().call()
             if (ec.message.hasError()) {
-                logger.warn("Email ${emailTemplateId} for config change ${requestId} failed: ${ec.message.errorsString}")
+                ec.logger.warn("Email ${emailTemplateId} for config change ${requestId} failed: ${ec.message.errorsString}")
                 ec.message.clearErrors()
             }
         ]]></script></actions>
