@@ -8,6 +8,8 @@ is applied when one of them approves. No change to the framework, runtime or oth
 2. Load the seed data: `java -jar moqui.war load types=seed,seed-initial` (loads `data/ConfigApprovalSeedData.xml`: the
    CONFIG_APPROVERS group, authz, guard fields, email templates). Entities are created on startup.
 3. Put at least **two** users in the `CONFIG_APPROVERS` group, each with an email address (Change Approval > Setup does this).
+   In OMS, Setup also mirrors the membership as an OFBiz `CONFIG_APPROVERS` security group (plus a `MaargSecGrp` mapping), because
+   maarg-util's login sync expires any Moqui group that has no OFBiz group behind it. Add approvers through Setup, not by SQL.
    Nobody can approve their own request, so a lone approver leaves their own requests waiting; Setup warns about this.
 4. Mail: the templates use email server `SYSTEM`; configure SMTP for it. Review links use the `webapp_http_host` property
    (and `webapp_https_enabled`), so set it to the public host.

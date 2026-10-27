@@ -417,6 +417,41 @@
             ec.message.addMessage("${code} is now guarded. Note: changes to existing records of ${entityName} are held; creating or deleting records is not.".toString())
         ]]></script></actions>
     </service>
+    <service verb="sync" noun="OfbizApproverGroup" authenticate="false">
+        <description>OMS only. maarg-util's OfbizShiroRealm rebuilds each user's Moqui groups from the OFBiz security groups at every
+            login and expires any membership that has no OFBiz group behind it, so a CONFIG_APPROVERS membership kept only in Moqui is
+            lost at the user's next login. Mirror it as an OFBiz SecurityGroup + MaargSecGrp mapping + UserLoginSecurityGroup so the
+            sync keeps it. Does nothing where those entities do not exist (e.g. a plain Moqui runtime).</description>
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="active" type="Boolean" required="true"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            def ef = ec.entity
+            String SG = "org.apache.ofbiz.security.securitygroup.SecurityGroup"
+            String ULSG = "org.apache.ofbiz.security.securitygroup.UserLoginSecurityGroup"
+            String MAP = "co.hotwax.integration.IntegrationTypeMapping"
+            if (!(ef.isEntityDefined(SG) && ef.isEntityDefined(ULSG) && ef.isEntityDefined(MAP))) return
+            def ua = ef.find("moqui.security.UserAccount").condition("userId", userId).disableAuthz().one()
+            if (ua == null) return
+            String loginId = ua.username
+            def now = ec.user.nowTimestamp
+            if (active) {
+                if (ef.find(SG).condition("groupId", "CONFIG_APPROVERS").disableAuthz().one() == null)
+                    ef.makeValue(SG).setAll([groupId: "CONFIG_APPROVERS", description: "Config change approvers (config-approval component)"]).create()
+                if (ef.find(MAP).condition("integrationTypeId", "MaargSecGrp").condition("mappingKey", "CONFIG_APPROVERS").disableAuthz().count() == 0)
+                    ef.makeValue(MAP).setAll([integrationMappingId: "SEC_GRP_CONFIG_APPROVERS", integrationTypeId: "MaargSecGrp",
+                        mappingKey: "CONFIG_APPROVERS", mappingValue: "CONFIG_APPROVERS",
+                        description: "Map OFBiz CONFIG_APPROVERS security group to the config-approval approver user group"]).create()
+                if (ef.find(ULSG).condition("userLoginId", loginId).condition("groupId", "CONFIG_APPROVERS").conditionDate("fromDate", "thruDate", now).disableAuthz().count() == 0)
+                    ef.makeValue(ULSG).setAll([userLoginId: loginId, groupId: "CONFIG_APPROVERS", fromDate: now]).create()
+            } else {
+                for (m in ef.find(ULSG).condition("userLoginId", loginId).condition("groupId", "CONFIG_APPROVERS").conditionDate("fromDate", "thruDate", now).disableAuthz().forUpdate(true).list()) {
+                    m.set("thruDate", now); m.update()
+                }
+            }
+        ]]></script></actions>
+    </service>
     <service verb="add" noun="Approver" authenticate="true">
         <in-parameters><parameter name="userId" required="true"/></in-parameters>
         <actions><script><![CDATA[
@@ -426,6 +461,7 @@
                 ec.message.addError("That user is already an approver."); return
             }
             ec.entity.makeValue("moqui.security.UserGroupMember").setAll([userGroupId: "CONFIG_APPROVERS", userId: userId, fromDate: ec.user.nowTimestamp]).create()
+            ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.sync#OfbizApproverGroup").parameter("userId", userId).parameter("active", true).call()
             ec.message.addMessage("Approver added.")
         ]]></script></actions>
     </service>
@@ -436,6 +472,7 @@
             def members = ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS").conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).forUpdate(true).list()
             if (members.size() <= 1) { ec.message.addError("There must be at least one approver."); return }
             for (m in members.findAll { it.userId == userId }) { m.set("thruDate", ec.user.nowTimestamp); m.update() }
+            ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.sync#OfbizApproverGroup").parameter("userId", userId).parameter("active", false).call()
             ec.message.addMessage("Approver removed.")
         ]]></script></actions>
     </service>
