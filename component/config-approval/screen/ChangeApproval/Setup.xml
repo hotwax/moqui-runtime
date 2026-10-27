@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Who is guarded and who approves, as data. Administrators only (checked in the services and by hiding the forms). -->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        default-menu-title="Setup" default-menu-index="2">
+
+    <transition name="setGuarded"><service-call name="co.hotwax.configapproval.ConfigApprovalServices.set#GuardedFieldActive"/><default-response url="."/></transition>
+    <transition name="addGuarded"><service-call name="co.hotwax.configapproval.ConfigApprovalServices.add#GuardedField"/><default-response url="."/></transition>
+    <transition name="addApprover"><service-call name="co.hotwax.configapproval.ConfigApprovalServices.add#Approver"/><default-response url="."/></transition>
+    <transition name="removeApprover"><service-call name="co.hotwax.configapproval.ConfigApprovalServices.remove#Approver"/><default-response url="."/></transition>
+
+    <actions>
+        <set field="isAdmin" from="ec.user.isInGroup('ADMIN')"/>
+        <set field="expireHours" from="System.getProperty('config.approval.expire.hours') ?: '72'"/>
+        <set field="gateOn" from="System.getProperty('config.approval.enabled') != 'false' ? 'On' : 'Off (config.approval.enabled=false)'"/>
+    </actions>
+
+    <widgets>
+        <container-box>
+            <box-header title="Settings (read only)"/>
+            <box-body>
+                <label text="Approval gate: ${gateOn}. Requests expire after ${expireHours} hours. These come from system properties (config.approval.enabled, config.approval.expire.hours)." type="p"/>
+            </box-body>
+        </container-box>
+
+        <container-box>
+            <box-header title="Approvers"/>
+            <box-body>
+                <label text="Members of the CONFIG_APPROVERS group. An approver cannot approve their own request." type="p"/>
+                <form-list name="ApproverList" list="approverList" skip-form="true">
+                    <entity-find entity-name="moqui.security.UserGroupMember" list="approverList">
+                        <date-filter/>
+                        <econdition field-name="userGroupId" value="CONFIG_APPROVERS"/>
+                        <order-by field-name="userId"/>
+                    </entity-find>
+                    <field name="userId"><default-field title="User"><display-entity entity-name="moqui.security.UserAccount" text="${userFullName?:username} (${username})"/></default-field></field>
+                    <field name="emailAddress"><default-field title="Email"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${emailAddress?:'(no email, will not be notified)'}"/></default-field></field>
+                    <field name="fromDate"><default-field title="Since"><display format="yyyy-MM-dd"/></default-field></field>
+                    <field name="remove"><default-field title=" "><link url="removeApprover" text="Remove" parameter-map="[userId:userId]" condition="isAdmin" confirmation="Remove this approver?"/></default-field></field>
+                </form-list>
+                <section name="AddApprover" condition="isAdmin"><widgets>
+                    <form-single name="AddApproverForm" transition="addApprover">
+                        <field name="userId"><default-field title="Add approver">
+                            <drop-down><entity-options key="${userId}" text="${userFullName?:username} (${username})"><entity-find entity-name="moqui.security.UserAccount"><order-by field-name="username"/></entity-find></entity-options></drop-down>
+                        </default-field></field>
+                        <field name="submit"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </widgets></section>
+            </box-body>
+        </container-box>
+
+        <container-box>
+            <box-header title="Guarded fields"/>
+            <box-body>
+                <label text="Changing one of these fields on an existing record needs approval. Other fields save as usual. Secret fields are never shown in requests or emails." type="p"/>
+                <form-list name="GuardedList" list="guardedList" skip-form="true">
+                    <entity-find entity-name="moqui.basic.Enumeration" list="guardedList">
+                        <econdition field-name="enumTypeId" value="ConfigApprovalField"/>
+                        <order-by field-name="enumCode"/>
+                    </entity-find>
+                    <field name="enumCode"><default-field title="Entity.field"><display/></default-field></field>
+                    <field name="description"><default-field title="What it controls"><display/></default-field></field>
+                    <field name="optionIndicator"><default-field title="Secret"><display text="${optionIndicator == 'Y' ? 'Yes' : ''}"/></default-field></field>
+                    <field name="optionValue"><default-field title="Status"><display text="${optionValue == 'N' ? 'Not guarded' : 'Guarded'}"/></default-field></field>
+                    <field name="toggle"><default-field title=" ">
+                        <link url="setGuarded" text="${optionValue == 'N' ? 'Guard again' : 'Stop guarding'}" parameter-map="[enumId:enumId, active:(optionValue == 'N' ? 'Y' : 'N')]" condition="isAdmin"/>
+                    </default-field></field>
+                </form-list>
+                <section name="AddGuarded" condition="isAdmin"><widgets>
+                    <form-single name="AddGuardedForm" transition="addGuarded">
+                        <field name="entityName"><default-field title="Entity"><text-line size="45" default-value="moqui.service.job.ServiceJob"/></default-field></field>
+                        <field name="fieldName"><default-field title="Field"><text-line size="25"/></default-field></field>
+                        <field name="description"><default-field title="What it controls"><text-line size="40"/></default-field></field>
+                        <field name="secret"><default-field title="Secret"><drop-down><option key="N" text="No"/><option key="Y" text="Yes, hide values"/></drop-down></default-field></field>
+                        <field name="submit"><default-field title="Guard this field"><submit/></default-field></field>
+                    </form-single>
+                </widgets></section>
+            </box-body>
+        </container-box>
+    </widgets>
+</screen>

@@ -26,7 +26,7 @@ if (gatePhase == "hold") {
     // wrapper services (e.g. JobServices.update#ServiceJob) name the entity explicitly; entity-auto services imply it
     String entityName = ec.context.get("gateEntityName") ?: gateServiceName.substring(gateServiceName.indexOf('#') + 1)
     List<EntityValue> guardList = ec.entity.find("moqui.basic.Enumeration").condition("enumTypeId", "ConfigApprovalField")
-            .condition("enumCode", org.moqui.entity.EntityCondition.LIKE, entityName + ".%").disableAuthz().list()
+            .condition("enumCode", org.moqui.entity.EntityCondition.LIKE, entityName + ".%").disableAuthz().useCache(false).list()
     Map<String, EntityValue> guarded = [:]
     for (EntityValue g in guardList) {
         if ("N".equals(g.optionValue)) continue

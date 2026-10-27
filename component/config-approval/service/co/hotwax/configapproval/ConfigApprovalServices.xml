@@ -302,4 +302,60 @@
             }
         ]]></script></actions>
     </service>
+
+    <!-- setup: who is guarded and who approves. Admin only (ADMIN group); not itself approval-gated, so the first approvers can be set up -->
+    <service verb="set" noun="GuardedFieldActive" authenticate="true">
+        <description>Switch a guarded field on or off (Enumeration.optionValue N = off)</description>
+        <in-parameters><parameter name="enumId" required="true"/><parameter name="active" required="true"/></in-parameters>
+        <actions><script><![CDATA[
+            if (!ec.user.isInGroup("ADMIN")) { ec.message.addError("Only an administrator can change the approval setup."); return }
+            def e = ec.entity.find("moqui.basic.Enumeration").condition("enumId", enumId).condition("enumTypeId", "ConfigApprovalField").forUpdate(true).one()
+            if (e == null) { ec.message.addError("Guarded field ${enumId} not found."); return }
+            e.set("optionValue", active == "Y" ? null : "N"); e.update()
+            ec.message.addMessage("${e.enumCode} is now ${active == 'Y' ? 'guarded' : 'not guarded'}.".toString())
+        ]]></script></actions>
+    </service>
+    <service verb="add" noun="GuardedField" authenticate="true">
+        <description>Guard another field. entityName.fieldName must exist; secret hides the values in requests and emails.</description>
+        <in-parameters>
+            <parameter name="entityName" required="true"/><parameter name="fieldName" required="true"/>
+            <parameter name="description"/><parameter name="secret" default-value="N"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            if (!ec.user.isInGroup("ADMIN")) { ec.message.addError("Only an administrator can change the approval setup."); return }
+            if (!ec.entity.isEntityDefined(entityName)) { ec.message.addError("Entity ${entityName} does not exist."); return }
+            if (!ec.entity.getEntityDefinition(entityName).isField(fieldName)) { ec.message.addError("${entityName} has no field ${fieldName}."); return }
+            if (ec.entity.getEntityDefinition(entityName).getPkFieldNames().contains(fieldName)) { ec.message.addError("${fieldName} is a key field and cannot be guarded."); return }
+            String code = entityName + "." + fieldName
+            if (ec.entity.find("moqui.basic.Enumeration").condition("enumTypeId", "ConfigApprovalField").condition("enumCode", code).count() > 0) {
+                ec.message.addError("${code} is already in the list."); return
+            }
+            ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumTypeId: "ConfigApprovalField",
+                    enumId: ec.entity.sequencedIdPrimary("moqui.basic.Enumeration", null, null).with { "CafX" + it }, enumCode: code,
+                    description: description ?: code, optionIndicator: secret == "Y" ? "Y" : null]).create()
+            ec.message.addMessage("${code} is now guarded. Note: changes to existing records of ${entityName} are held; creating or deleting records is not.".toString())
+        ]]></script></actions>
+    </service>
+    <service verb="add" noun="Approver" authenticate="true">
+        <in-parameters><parameter name="userId" required="true"/></in-parameters>
+        <actions><script><![CDATA[
+            if (!ec.user.isInGroup("ADMIN")) { ec.message.addError("Only an administrator can change the approval setup."); return }
+            if (ec.entity.find("moqui.security.UserAccount").condition("userId", userId).count() == 0) { ec.message.addError("User ${userId} not found."); return }
+            if (ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS").condition("userId", userId).conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).count() > 0) {
+                ec.message.addError("That user is already an approver."); return
+            }
+            ec.entity.makeValue("moqui.security.UserGroupMember").setAll([userGroupId: "CONFIG_APPROVERS", userId: userId, fromDate: ec.user.nowTimestamp]).create()
+            ec.message.addMessage("Approver added.")
+        ]]></script></actions>
+    </service>
+    <service verb="remove" noun="Approver" authenticate="true">
+        <in-parameters><parameter name="userId" required="true"/></in-parameters>
+        <actions><script><![CDATA[
+            if (!ec.user.isInGroup("ADMIN")) { ec.message.addError("Only an administrator can change the approval setup."); return }
+            def members = ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS").conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).forUpdate(true).list()
+            if (members.size() <= 1) { ec.message.addError("There must be at least one approver."); return }
+            for (m in members.findAll { it.userId == userId }) { m.set("thruDate", ec.user.nowTimestamp); m.update() }
+            ec.message.addMessage("Approver removed.")
+        ]]></script></actions>
+    </service>
 </services>

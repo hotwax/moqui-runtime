@@ -706,4 +706,63 @@ class ConfigApprovalPocTests extends Specification {
         job("poc_j28").paused == "Y"          // the second apply did not undo the first
         job("poc_j28").transactionTimeout == 900
     }
+
+    def "29 setup: an admin can add and remove approvers and guard another field; others are refused; the screen renders"() {
+        given:
+        ec.artifactExecution.disableAuthz()
+        ec.entity.makeValue("moqui.security.UserAccount").setAll([userId: "poc_root", username: "poc_root", userFullName: "Root", currentPassword: "x"]).createOrUpdate()
+        ec.entity.makeValue("moqui.security.UserGroupMember").setAll([userGroupId: "ADMIN", userId: "poc_root", fromDate: new Timestamp(System.currentTimeMillis() - 86400000L)]).createOrUpdate()
+        ec.artifactExecution.enableAuthz()
+        def activeApprovers = { ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS").conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).disableAuthz().useCache(false).list()*.userId as Set }
+        def callAs = { String who, String svc, Map p -> ec.message.clearAll(); as_(who.replace("poc_", "")) { ec.service.sync().name(SVC + svc).parameters(p).call() }; return ec.message.errorsString }
+        when:
+        String denied = callAs("poc_alice", "add#Approver", [userId: "poc_carol"])
+        then:
+        denied.contains("administrator")
+        !activeApprovers().contains("poc_carol")
+
+        when:
+        String addErr = callAs("poc_root", "add#Approver", [userId: "poc_carol"])
+        then:
+        !addErr
+        activeApprovers().contains("poc_carol")
+
+        when:
+        String removeErr = callAs("poc_root", "remove#Approver", [userId: "poc_carol"])
+        then:
+        !removeErr
+        !activeApprovers().contains("poc_carol")
+
+        when: "guard a new field, it then holds a change; a key field and an unknown field are refused"
+        String guardErr = callAs("poc_root", "add#GuardedField", [entityName: "moqui.service.job.ServiceJob", fieldName: "serviceName", description: "Job service"])
+        String keyErr = callAs("poc_root", "add#GuardedField", [entityName: "moqui.service.job.ServiceJob", fieldName: "jobName"])
+        String badErr = callAs("poc_root", "add#GuardedField", [entityName: "moqui.service.job.ServiceJob", fieldName: "nope"])
+        makeJob("poc_j29")
+        ec.message.clearAll()   // leftover errors would roll back the next service call
+        callUpdate("alice", [jobName: "poc_j29", serviceName: "org.moqui.impl.UtilityServices.other", _changeReason: "swap"])
+        then:
+        !guardErr
+        keyErr.contains("key field")
+        badErr.contains("no field")
+        ccrs("poc_j29").size() == 1
+        job("poc_j29").serviceName == "org.moqui.impl.UtilityServices.noop"
+
+        when: "stop guarding it again: the change goes straight through"
+        def enumId = ec.entity.find("moqui.basic.Enumeration").condition("enumTypeId", "ConfigApprovalField").condition("enumCode", "moqui.service.job.ServiceJob.serviceName").disableAuthz().one().enumId
+        callAs("poc_root", "set#GuardedFieldActive", [enumId: enumId, active: "N"])
+        ec.message.clearAll()
+        callUpdate("alice", [jobName: "poc_j29", serviceName: "org.moqui.impl.UtilityServices.other"])
+        then:
+        job("poc_j29").serviceName == "org.moqui.impl.UtilityServices.other"
+
+        when:
+        ec.user.internalLoginUser("poc_root")
+        String page
+        try { page = ec.screen.makeRender().webappName("webroot").rootScreen("component://config-approval/screen/ChangeApproval/Setup.xml").renderMode("html").render() }
+        finally { ec.user.logoutUser() }
+        then:
+        page.contains("ServiceJob.paused")
+        page.contains("Guard this field")
+        page.contains("poc_bob")
+    }
 }

@@ -66,6 +66,20 @@
     <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_UI_APR" userGroupId="CONFIG_APPROVERS" artifactGroupId="CONFIG_APPROVAL_UI"
             authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_ALL"/>
 
+    <!-- setup screens (guarded fields, approvers): administrators; the services also check the ADMIN group -->
+    <moqui.security.ArtifactGroup artifactGroupId="CONFIG_APPROVAL_SETUP" description="Change Approval setup (guarded fields, approvers)"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_SETUP" artifactTypeEnumId="AT_XML_SCREEN" nameIsPattern="Y" inheritAuthz="Y"
+            artifactName="component://config-approval/screen/ChangeApproval.*"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_SETUP" artifactTypeEnumId="AT_XML_SCREEN_TRANS" nameIsPattern="Y" inheritAuthz="Y"
+            artifactName="component://config-approval/screen/ChangeApproval.*"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_SETUP" artifactTypeEnumId="AT_SERVICE" nameIsPattern="Y" inheritAuthz="Y"
+            artifactName="co.hotwax.configapproval.ConfigApprovalServices.*"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_SETUP" artifactTypeEnumId="AT_ENTITY" inheritAuthz="Y" artifactName="moqui.basic.Enumeration"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_SETUP" artifactTypeEnumId="AT_ENTITY" inheritAuthz="Y" artifactName="moqui.security.UserGroupMember"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_SETUP" artifactTypeEnumId="AT_ENTITY" inheritAuthz="Y" artifactName="moqui.security.UserAccount"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_SETUP_ADM" userGroupId="ADMIN" artifactGroupId="CONFIG_APPROVAL_SETUP"
+            authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_ALL"/>
+
     <!-- everyone else may open the screens and see (and cancel) their own requests; the screens filter to the requester's own -->
     <moqui.security.ArtifactGroup artifactGroupId="CONFIG_APPROVAL_OWN_VIEW" description="Change Approval screens and request list (own requests)"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_VIEW" artifactTypeEnumId="AT_XML_SCREEN" nameIsPattern="Y" inheritAuthz="Y"
