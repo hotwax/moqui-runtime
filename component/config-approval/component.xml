@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- POC: depends-on maarg-util and oms is added when the screens/MCP tools land; the POC only needs the framework -->
+<!-- oms: the "Change Approval" menu is mounted under Hotwax Commerce (see MoquiConf.xml). maarg-util: JobServices.update#ServiceJob is gated. -->
 <component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd"
            name="config-approval" version="0.1.0">
+    <depends-on name="oms"/>
+    <depends-on name="maarg-util"/>
 </component>
