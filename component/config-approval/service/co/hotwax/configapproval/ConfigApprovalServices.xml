@@ -247,13 +247,11 @@
             def status = ec.entity.find("moqui.basic.StatusItem").condition("statusId", ccr.statusId).one()
             def requester = ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.requestedByUserId).disableAuthz().one()
             def decider = ccr.decidedByUserId ? ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.decidedByUserId).disableAuthz().one() : null
-            // emails are sent outside a web request, so the link base must come from config; a relative link breaks in mail clients
-            String host = System.getProperty("config_approval_base_url") ?: ""
-            if (!host) {
-                String h = System.getProperty("webapp_http_host")
-                if (h) host = (System.getProperty("webapp_https_enabled") == "true" ? "https://" : "http://") + h + (System.getProperty("webapp_http_port") && System.getProperty("webapp_https_enabled") != "true" && System.getProperty("webapp_http_port") != "80" ? ":" + System.getProperty("webapp_http_port") : "")
-            }
-            host = host.replaceAll('/+$', "")
+            // emails are sent outside a web request, so build the base URL from the same props as co.hotwax.util.MaargUtil.getBaseUrl()
+            // (use that once this component is merged into maarg-util); a relative link would open on the mail client's host
+            boolean httpsOn = System.getProperty("webapp_https_enabled") == "true"
+            String host = (httpsOn ? "https://" : "http://") + (System.getProperty("webapp_http_host") ?: "localhost") +
+                    (httpsOn ? "" : ":" + (System.getProperty("webapp_http_port") ?: "8080"))
             Map bodyParameters = [requestId: requestId, summaryText: ccr.summaryText, statusId: ccr.statusId,
                     statusDescription: status?.description ?: ccr.statusId, reason: ccr.reason, reasonMissing: ccr.reasonMissing,
                     plannedFixDate: ccr.plannedFixDate, expireDate: ccr.expireDate, decisionComment: ccr.decisionComment,
