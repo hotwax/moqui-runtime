@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- "Change Approval" menu under Hotwax Commerce (mounted into the Oms app from MoquiConf.xml, no change to the oms component) -->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        default-menu-title="Change Approval" menu-image="fa fa-check-square-o" menu-image-type="icon" default-menu-index="90">
+    <subscreens default-item="FindRequest"/>
+    <widgets>
+        <subscreens-panel id="ChangeApprovalPanel" type="popup"/>
+    </widgets>
+</screen>

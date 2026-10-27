@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+
+    <service verb="create" noun="ConfigChangeRequest" authenticate="anonymous-all" allow-remote="false">
+        <description>Internal: called by the gate (ApprovalGate.groovy) to save a held change. Cancels older pending
+            requests for the same record that touch any of the same fields.</description>
+        <in-parameters>
+            <parameter name="changeSourceEnumId" required="true"/><parameter name="changeTypeEnumId" required="true"/>
+            <parameter name="entityName" required="true"/><parameter name="pkJson" required="true"/>
+            <parameter name="serviceName" required="true"/>
+            <parameter name="parametersJson" required="true" allow-html="any"/>
+            <parameter name="originalJson" allow-html="any"/><parameter name="diffJson" allow-html="any"/>
+            <parameter name="summaryText"/><parameter name="reason"/><parameter name="plannedFixDate" type="Timestamp"/>
+            <parameter name="requestChannel"/>
+        </in-parameters>
+        <out-parameters><parameter name="requestId"/></out-parameters>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            Timestamp now = ec.user.nowTimestamp
+            int expireHours = (System.getProperty("config.approval.expire.hours") ?: "72") as int
+            String statusId = changeSourceEnumId == "CcsApproval" ? "CcrPending" : "CcrApplied"
+
+            Set newFields = ((Map) new JsonSlurper().parseText(parametersJson)).keySet()
+            String ccrId = ec.entity.sequencedIdPrimary("co.hotwax.configapproval.ConfigChangeRequest", null, null)
+            ec.entity.makeValue("co.hotwax.configapproval.ConfigChangeRequest").setAll([
+                    requestId: ccrId, changeSourceEnumId: changeSourceEnumId, changeTypeEnumId: changeTypeEnumId,
+                    entityName: entityName, pkJson: pkJson, serviceName: serviceName, parametersJson: parametersJson,
+                    originalJson: originalJson, diffJson: diffJson, summaryText: summaryText, reason: reason,
+                    reasonMissing: reason ? "N" : "Y", plannedFixDate: plannedFixDate, statusId: statusId,
+                    requestedByUserId: ec.user.userId, requestedDate: now, requestChannel: requestChannel,
+                    expireDate: statusId == "CcrPending" ? new Timestamp(now.time + expireHours * 3600000L) : null,
+                    appliedDate: statusId == "CcrApplied" ? now : null]).create()
+
+            // supersede: a newer wish for the same field(s) of the same record replaces the older pending one
+            if (statusId == "CcrPending") {
+                for (older in ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("entityName", entityName)
+                        .condition("pkJson", pkJson).condition("statusId", "CcrPending").condition("requestId", "!=", ccrId).forUpdate(true).list()) {
+                    Set oldFields = ((Map) new JsonSlurper().parseText(older.parametersJson)).keySet()
+                    if (oldFields.disjoint(newFields)) continue
+                    older.set("statusId", "CcrCancelled"); older.set("supersededById", ccrId)
+                    older.set("decisionComment", "Superseded by " + ccrId); older.update()
+                }
+            }
+            requestId = ccrId
+        ]]></script></actions>
+    </service>
+
+    <service verb="approve" noun="ConfigChangeRequest" authenticate="true">
+        <in-parameters>
+            <parameter name="requestId" required="true"/><parameter name="decisionComment"/>
+        </in-parameters>
+        <out-parameters><parameter name="statusId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr" for-update="true"/>
+            <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+            <if condition="!ec.user.isInGroup('CONFIG_APPROVERS')">
+                <return error="true" message="You are not an approver for configuration changes."/></if>
+            <if condition="ccr.requestedByUserId == ec.user.userId">
+                <return error="true" message="You can't approve your own request. Ask another approver."/></if>
+            <if condition="ccr.statusId != 'CcrPending'">
+                <return error="true" message="This request is already ${ccr.statusId == 'CcrApplied' ? 'applied' : ccr.statusId.substring(3).toLowerCase()}."/></if>
+            <if condition="ccr.expireDate &amp;&amp; ccr.expireDate &lt; ec.user.nowTimestamp">
+                <return error="true" message="This request expired. The requester needs to submit it again."/></if>
+            <!-- a post-commit SECA runs apply# once this status change is committed -->
+            <set field="ccr.statusId" value="CcrApproved"/>
+            <set field="ccr.decidedByUserId" from="ec.user.userId"/>
+            <set field="ccr.decidedDate" from="ec.user.nowTimestamp"/>
+            <set field="ccr.decisionComment" from="decisionComment"/>
+            <entity-update value-field="ccr"/>
+            <set field="statusId" value="CcrApproved"/>
+        </actions>
+    </service>
+
+    <service verb="reject" noun="ConfigChangeRequest" authenticate="true">
+        <in-parameters>
+            <parameter name="requestId" required="true"/><parameter name="decisionComment" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="statusId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr" for-update="true"/>
+            <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+            <if condition="!ec.user.isInGroup('CONFIG_APPROVERS')">
+                <return error="true" message="You are not an approver for configuration changes."/></if>
+            <if condition="ccr.requestedByUserId == ec.user.userId">
+                <return error="true" message="You can't decide your own request. Use Cancel instead."/></if>
+            <if condition="ccr.statusId != 'CcrPending'">
+                <return error="true" message="This request is no longer pending."/></if>
+            <set field="ccr.statusId" value="CcrRejected"/>
+            <set field="ccr.decidedByUserId" from="ec.user.userId"/>
+            <set field="ccr.decidedDate" from="ec.user.nowTimestamp"/>
+            <set field="ccr.decisionComment" from="decisionComment"/>
+            <entity-update value-field="ccr"/>
+            <set field="statusId" value="CcrRejected"/>
+        </actions>
+    </service>
+
+    <service verb="cancel" noun="ConfigChangeRequest" authenticate="true">
+        <in-parameters>
+            <parameter name="requestId" required="true"/><parameter name="decisionComment"/>
+        </in-parameters>
+        <out-parameters><parameter name="statusId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr" for-update="true"/>
+            <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+            <if condition="ccr.requestedByUserId != ec.user.userId &amp;&amp; !ec.user.isInGroup('CONFIG_APPROVERS')">
+                <return error="true" message="Only the requester or an approver can cancel a request."/></if>
+            <if condition="!(ccr.statusId in ['CcrPending', 'CcrFailed'])">
+                <return error="true" message="Only pending or failed requests can be cancelled."/></if>
+            <set field="ccr.statusId" value="CcrCancelled"/>
+            <set field="ccr.decidedByUserId" from="ec.user.userId"/>
+            <set field="ccr.decidedDate" from="ec.user.nowTimestamp"/>
+            <set field="ccr.decisionComment" from="decisionComment"/>
+            <entity-update value-field="ccr"/>
+            <set field="statusId" value="CcrCancelled"/>
+        </actions>
+    </service>
+
+    <service verb="apply" noun="ConfigChangeRequest" authenticate="true" allow-remote="false" transaction-timeout="300">
+        <description>Replays an approved request: stale check, then the stored service call as the approver with the
+            gate switched off for this call only. The replay runs in its own transaction so a failure rolls back the
+            change but still lets us record CcrFailed.</description>
+        <in-parameters><parameter name="requestId" required="true"/></in-parameters>
+        <out-parameters><parameter name="statusId"/><parameter name="errorText"/></out-parameters>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            import org.moqui.impl.context.ExecutionContextImpl
+
+            def ccr = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", requestId).forUpdate(true).one()
+            if (ccr == null) { ec.message.addError("Change request ${requestId} not found."); return }
+            if (!ec.user.isInGroup("CONFIG_APPROVERS")) { ec.message.addError("You are not an approver for configuration changes."); return }
+            if (ccr.statusId != "CcrApproved") { ec.message.addError("Only approved requests can be applied (status is ${ccr.statusId})."); return }
+
+            String failure = null
+            // stale check: a guarded field must still hold the value it had when the request was made
+            Map original = ccr.originalJson ? (Map) new JsonSlurper().parseText(ccr.originalJson) : [:]
+            Map pk = (Map) new JsonSlurper().parseText(ccr.pkJson)
+            def current = ec.entity.find(ccr.entityName).condition(pk).useCache(false).disableAuthz().one()
+            if (current == null) failure = "The record no longer exists."
+            else for (String f in original.keySet()) {
+                String now = current.get(f) == null ? null : current.get(f).toString()
+                String was = original.get(f)
+                // null paused means active, same as N
+                if (f == "paused") { now = now ?: "N"; was = was ?: "N" }
+                if (now != was) { failure = "Record changed since the request (${f} is now ${now}). Please submit the change again."; break }
+            }
+
+            if (failure == null) {
+                Map shared = ((ExecutionContextImpl) ec).contextStack.getSharedMap()
+                shared.put("ccr.replay", requestId)
+                try {
+                    ec.service.sync().name(ccr.serviceName).parameters((Map) new JsonSlurper().parseText(ccr.parametersJson))
+                            .requireNewTransaction(true).call()
+                    if (ec.message.hasError()) {
+                        failure = ec.message.errorsString
+                        ec.message.clearErrors()
+                    }
+                } catch (Throwable t) {
+                    failure = t.toString()
+                } finally {
+                    shared.remove("ccr.replay")
+                }
+            }
+
+            ccr.set("statusId", failure == null ? "CcrApplied" : "CcrFailed")
+            ccr.set("appliedDate", failure == null ? ec.user.nowTimestamp : null)
+            ccr.set("errorText", failure)
+            ccr.update()
+            statusId = ccr.statusId
+            errorText = failure
+            if (failure == null) ec.message.addMessage("Change ${requestId} approved and applied.".toString())
+            else ec.message.addMessage("Change ${requestId} was approved but could not be applied: ${failure}".toString(), "warning")
+        ]]></script></actions>
+    </service>
+
+    <service verb="send" noun="ConfigChangeEmail" authenticate="anonymous-all" allow-remote="false">
+        <description>Email about a request: approval needed (to approvers except the requester) or the outcome (to the
+            requester). Never fails the caller: a mail problem is logged and cleared.</description>
+        <in-parameters>
+            <parameter name="requestId" required="true"/>
+            <parameter name="emailTemplateId" required="true"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            def ccr = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", requestId).disableAuthz().useCache(false).one()
+            if (ccr == null) return
+
+            Set<String> to = new LinkedHashSet<>()
+            if (emailTemplateId == "CCR_APPROVAL_REQUEST") {
+                for (m in ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS")
+                        .conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).disableAuthz().list()) {
+                    if (m.userId == ccr.requestedByUserId) continue
+                    String addr = ec.entity.find("moqui.security.UserAccount").condition("userId", m.userId).disableAuthz().one()?.emailAddress
+                    if (addr) to.add(addr)
+                }
+            } else {
+                String addr = ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.requestedByUserId).disableAuthz().one()?.emailAddress
+                if (addr) to.add(addr)
+            }
+            if (!to) { logger.info("No email recipients for config change ${requestId} template ${emailTemplateId}"); return }
+
+            def status = ec.entity.find("moqui.basic.StatusItem").condition("statusId", ccr.statusId).one()
+            def requester = ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.requestedByUserId).disableAuthz().one()
+            def decider = ccr.decidedByUserId ? ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.decidedByUserId).disableAuthz().one() : null
+            String host = System.getProperty("webapp_http_host") ?: ""
+            Map bodyParameters = [requestId: requestId, summaryText: ccr.summaryText, statusId: ccr.statusId,
+                    statusDescription: status?.description ?: ccr.statusId, reason: ccr.reason, reasonMissing: ccr.reasonMissing,
+                    plannedFixDate: ccr.plannedFixDate, expireDate: ccr.expireDate, decisionComment: ccr.decisionComment,
+                    errorText: ccr.errorText, requesterName: requester ? (requester.userFullName ?: requester.username) : ccr.requestedByUserId,
+                    deciderName: decider ? (decider.userFullName ?: decider.username) : null,
+                    diffList: ccr.diffJson ? new JsonSlurper().parseText(ccr.diffJson) : [],
+                    reviewUrl: host + "/apps/Oms/ChangeApproval/Request?requestId=" + requestId]
+            ec.service.sync().name("org.moqui.impl.EmailServices.send#EmailTemplate")
+                    .parameters([emailTemplateId: emailTemplateId, toAddresses: to.join(","), bodyParameters: bodyParameters,
+                                 createEmailMessage: true]).disableAuthz().call()
+            if (ec.message.hasError()) {
+                logger.warn("Email ${emailTemplateId} for config change ${requestId} failed: ${ec.message.errorsString}")
+                ec.message.clearErrors()
+            }
+        ]]></script></actions>
+    </service>
+</services>

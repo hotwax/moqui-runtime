@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- POC: depends-on maarg-util and oms is added when the screens/MCP tools land; the POC only needs the framework -->
+<component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd"
+           name="config-approval" version="0.1.0">
+</component>

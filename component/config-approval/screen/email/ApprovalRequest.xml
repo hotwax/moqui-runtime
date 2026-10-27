@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        require-authentication="false" standalone="true">
+    <widgets>
+        <render-mode>
+            <text type="html,text"><![CDATA[
+<p><b>${requesterName}</b> asked to change a sensitive setting.</p>
+<p><b>${summaryText}</b> (CR ${requestId})</p>
+<#list diffList as d><p>${d.field}: ${d.oldValue!"(empty)"} &rarr; <b>${d.newValue!"(empty)"}</b></p></#list>
+<p>Reason: ${reason!"(no reason given)"}</p>
+<#if plannedFixDate??><p>Planned fix: ${plannedFixDate?string("yyyy-MM-dd HH:mm")}</p></#if>
+<#if expireDate??><p>Expires: ${expireDate?string("yyyy-MM-dd HH:mm")} if nobody decides</p></#if>
+<p><a href="${reviewUrl}">Review request</a> (sign in required; you can't approve your own requests)</p>
+            ]]></text>
+        </render-mode>
+    </widgets>
+</screen>

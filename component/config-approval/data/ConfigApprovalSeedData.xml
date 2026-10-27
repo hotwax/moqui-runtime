@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- POC seed: status flow, change source/type, ONE guarded field (ServiceJob.paused), groups, email templates -->
+<entity-facade-xml type="seed">
+    <moqui.basic.StatusType statusTypeId="ConfigChangeRequest" description="Config Change Request"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrPending"   sequenceNum="1" description="Pending approval"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrApproved"  sequenceNum="2" description="Approved"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrApplied"   sequenceNum="3" description="Applied"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrFailed"    sequenceNum="4" description="Failed"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrRejected"  sequenceNum="5" description="Rejected"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrCancelled" sequenceNum="6" description="Cancelled"/>
+    <moqui.basic.StatusItem statusTypeId="ConfigChangeRequest" statusId="CcrExpired"   sequenceNum="7" description="Expired"/>
+
+    <moqui.basic.StatusFlow statusFlowId="ConfigChangeRequest" statusTypeId="ConfigChangeRequest" description="Config change approval"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrPending"  toStatusId="CcrApproved"  transitionName="Approve"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrPending"  toStatusId="CcrRejected"  transitionName="Reject"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrPending"  toStatusId="CcrCancelled" transitionName="Cancel"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrPending"  toStatusId="CcrExpired"   transitionName="Expire"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrApproved" toStatusId="CcrApplied"   transitionName="Apply"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrApproved" toStatusId="CcrFailed"    transitionName="Fail"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrFailed"   toStatusId="CcrApproved"  transitionName="Retry"/>
+    <moqui.basic.StatusFlowTransition statusFlowId="ConfigChangeRequest" statusId="CcrFailed"   toStatusId="CcrCancelled" transitionName="Cancel"/>
+
+    <moqui.basic.EnumerationType enumTypeId="ConfigChangeSource" description="Config change source"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigChangeSource" enumId="CcsApproval"   description="Approval request"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigChangeSource" enumId="CcsBreakGlass" description="Break-glass"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigChangeSource" enumId="CcsUngated"    description="Changed without approval"/>
+    <moqui.basic.EnumerationType enumTypeId="ConfigChangeType" description="Config change type"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigChangeType" enumId="CctUpdate" description="Update"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigChangeType" enumId="CctCreate" description="Create"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigChangeType" enumId="CctDelete" description="Delete"/>
+
+    <!-- Guarded fields. enumCode = Entity.field. optionIndicator Y = secret. optionValue N = area switched off -->
+    <moqui.basic.EnumerationType enumTypeId="ConfigApprovalField" description="Fields that need approval to change"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjPaused" enumCode="moqui.service.job.ServiceJob.paused" description="Job on/off"/>
+
+    <moqui.security.UserGroup userGroupId="CONFIG_APPROVERS" description="Config change approvers"/>
+    <moqui.security.UserGroup userGroupId="CONFIG_BREAK_GLASS" description="Config change break-glass (on-call leads)"/>
+    <moqui.security.UserGroup userGroupId="CONFIG_APPROVAL_BYPASS" description="Config approval bypass (system accounts only)"/>
+
+    <!-- approvers may open the Change Approval screens, read requests and decide them -->
+    <moqui.security.ArtifactGroup artifactGroupId="CONFIG_APPROVAL_UI" description="Change Approval screens and decision services"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_UI" artifactTypeEnumId="AT_XML_SCREEN" nameIsPattern="Y" inheritAuthz="Y"
+            artifactName="component://config-approval/screen/ChangeApproval.*"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_UI" artifactTypeEnumId="AT_ENTITY" inheritAuthz="Y"
+            artifactName="co.hotwax.configapproval.ConfigChangeRequest"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_UI" artifactTypeEnumId="AT_SERVICE" nameIsPattern="Y" inheritAuthz="Y"
+            artifactName="co.hotwax.configapproval.ConfigApprovalServices.*"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_UI_APR" userGroupId="CONFIG_APPROVERS" artifactGroupId="CONFIG_APPROVAL_UI"
+            authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_ALL"/>
+
+    <moqui.basic.email.EmailTemplate emailTemplateId="CCR_APPROVAL_REQUEST" description="Config change: approval needed"
+            emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
+            bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"
+            subject="Approval needed: ${summaryText} (CR ${requestId})"/>
+    <moqui.basic.email.EmailTemplate emailTemplateId="CCR_DECISION" description="Config change: decided or applied"
+            emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
+            bodyScreenLocation="component://config-approval/screen/email/Decision.xml"
+            subject="${statusDescription}: ${summaryText} (CR ${requestId})"/>
+</entity-facade-xml>

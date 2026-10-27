@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
+    <entity entity-name="ConfigChangeRequest" package="co.hotwax.configapproval" short-alias="configChangeRequests">
+        <description>A held change to sensitive configuration, waiting for (or past) a decision.
+            Also records break-glass changes and ungated changes found by the EECA detector.</description>
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="changeSourceEnumId" type="id"><description>CcsApproval, CcsBreakGlass, CcsUngated</description></field>
+        <field name="changeTypeEnumId" type="id"><description>CctUpdate, CctCreate, CctDelete</description></field>
+        <field name="entityName" type="text-medium"/>
+        <field name="pkJson" type="text-medium"><description>PK of the target record with sorted keys, e.g. {"jobName":"sync_inventory"}</description></field>
+        <field name="serviceName" type="text-medium"><description>Service to replay on approval</description></field>
+        <field name="parametersJson" type="text-very-long" encrypt="true">
+            <description>Exact parameters for the replay. Encrypted because it may hold secrets.</description></field>
+        <field name="originalJson" type="text-very-long" encrypt="true">
+            <description>Guarded field values at request time, for the stale check.</description></field>
+        <field name="diffJson" type="text-very-long">
+            <description>[{field, oldValue, newValue}] for display. Secret values replaced with "(changed)".</description></field>
+        <field name="summaryText" type="text-medium"><description>One line, e.g. Pause job sync_inventory_shopify</description></field>
+        <field name="reason" type="text-long"/>
+        <field name="reasonMissing" type="text-indicator"/>
+        <field name="plannedFixDate" type="date-time"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="requestedByUserId" type="id"/>
+        <field name="requestedDate" type="date-time"/>
+        <field name="requestChannel" type="text-short"><description>screen, rest, mcp, service</description></field>
+        <field name="expireDate" type="date-time"/>
+        <field name="reminderDate" type="date-time"/>
+        <field name="decidedByUserId" type="id"/>
+        <field name="decidedDate" type="date-time"/>
+        <field name="decisionComment" type="text-long"/>
+        <field name="appliedDate" type="date-time"/>
+        <field name="errorText" type="text-long"/>
+        <field name="supersededById" type="id"/>
+
+        <relationship type="one" related="moqui.basic.StatusItem"/>
+        <relationship type="one" title="ChangeSource" related="moqui.basic.Enumeration">
+            <key-map field-name="changeSourceEnumId"/></relationship>
+        <relationship type="one" title="ChangeType" related="moqui.basic.Enumeration">
+            <key-map field-name="changeTypeEnumId"/></relationship>
+        <relationship type="one" title="RequestedBy" related="moqui.security.UserAccount">
+            <key-map field-name="requestedByUserId" related="userId"/></relationship>
+        <relationship type="one" title="DecidedBy" related="moqui.security.UserAccount">
+            <key-map field-name="decidedByUserId" related="userId"/></relationship>
+        <relationship type="one-nofk" title="SupersededBy" related="co.hotwax.configapproval.ConfigChangeRequest">
+            <key-map field-name="supersededById" related="requestId"/></relationship>
+
+        <index name="CCR_STATUS_DATE"><index-field name="statusId"/><index-field name="requestedDate"/></index>
+        <index name="CCR_ENTITY"><index-field name="entityName"/><index-field name="pkJson"/></index>
+        <index name="CCR_REQUESTER"><index-field name="requestedByUserId"/></index>
+    </entity>
+</entities>

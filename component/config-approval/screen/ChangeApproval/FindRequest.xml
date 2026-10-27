@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        default-menu-title="Requests" default-menu-index="1">
+
+    <transition name="requestDetail"><default-response url="../Request"/></transition>
+
+    <!-- pending first: the page opens on what needs a decision unless the user picked another status -->
+    <actions><set field="statusId" from="statusId ?: (ec.web?.parameters?.containsKey('statusId') ? null : 'CcrPending')"/></actions>
+
+    <widgets>
+        <form-list name="RequestList" list="requestList" skip-form="true" show-page-size="true" header-dialog="true">
+            <entity-find entity-name="co.hotwax.configapproval.ConfigChangeRequest" list="requestList">
+                <search-form-inputs default-order-by="-requestedDate" skip-fields="statusId"/>
+                <econdition field-name="statusId" from="statusId" ignore-if-empty="true"/>
+            </entity-find>
+            <field name="requestId"><default-field title="Request"><link text="${requestId}" url="requestDetail" link-type="anchor"/></default-field></field>
+            <field name="summaryText"><default-field title="Change"><display/></default-field></field>
+            <field name="reason"><default-field><display/></default-field></field>
+            <field name="requestedByUserId"><default-field title="Requested by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}"/></default-field></field>
+            <field name="requestedDate"><default-field title="Requested"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+            <field name="expireDate"><default-field title="Expires"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+            <field name="statusId">
+                <header-field title="Status">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${statusId}" text="${description}">
+                            <entity-find entity-name="moqui.basic.StatusItem" cache="true">
+                                <econdition field-name="statusTypeId" value="ConfigChangeRequest"/>
+                                <order-by field-name="sequenceNum"/>
+                            </entity-find>
+                        </entity-options>
+                    </drop-down>
+                    <submit text="Find"/>
+                </header-field>
+                <default-field title="Status"><display-entity entity-name="moqui.basic.StatusItem" key-field-name="statusId" text="${description}"/></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

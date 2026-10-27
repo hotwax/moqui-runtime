@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        default-menu-include="false">
+
+    <parameter name="requestId" required="true"/>
+
+    <!-- who may decide is enforced in the services (approver group, not the requester); the screen only offers the buttons -->
+    <transition name="approve">
+        <service-call name="co.hotwax.configapproval.ConfigApprovalServices.approve#ConfigChangeRequest"/>
+        <default-response url="."/>
+    </transition>
+    <transition name="reject">
+        <service-call name="co.hotwax.configapproval.ConfigApprovalServices.reject#ConfigChangeRequest"/>
+        <default-response url="."/>
+    </transition>
+    <transition name="cancel">
+        <service-call name="co.hotwax.configapproval.ConfigApprovalServices.cancel#ConfigChangeRequest"/>
+        <default-response url="."/>
+    </transition>
+    <transition name="back"><default-response url="../FindRequest"/></transition>
+
+    <actions>
+        <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr"/>
+        <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+        <set field="isPending" from="ccr.statusId == 'CcrPending'"/>
+        <set field="isRequester" from="ccr.requestedByUserId == ec.user.userId"/>
+        <set field="canDecide" from="isPending &amp;&amp; !isRequester &amp;&amp; ec.user.isInGroup('CONFIG_APPROVERS')"/>
+        <set field="diffList" from="ccr.diffJson ? new groovy.json.JsonSlurper().parseText(ccr.diffJson) : []"/>
+        <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"><field-map field-name="statusId" from="ccr.statusId"/></entity-find-one>
+    </actions>
+
+    <widgets>
+        <link url="back" text="Back to requests" link-type="anchor"/>
+        <label text="${ccr.summaryText}" type="h4"/>
+        <container-box>
+            <box-header title="Request ${requestId}"/>
+            <box-body>
+                <form-single name="RequestInfo" map="ccr">
+                    <field name="statusId"><default-field title="Status"><display text="${statusItem?.description ?: ccr.statusId}"/></default-field></field>
+                    <field name="requestedByUserId"><default-field title="Requested by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}"/></default-field></field>
+                    <field name="requestedDate"><default-field title="Requested"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+                    <field name="reason"><default-field><display also-hidden="false"/></default-field></field>
+                    <field name="plannedFixDate"><default-field title="Planned fix"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+                    <field name="expireDate"><default-field title="Expires"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+                    <field name="decidedByUserId"><default-field title="Decided by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}" also-hidden="false"/></default-field></field>
+                    <field name="decisionComment"><default-field title="Decision comment"><display/></default-field></field>
+                    <field name="errorText"><default-field title="Apply error"><display/></default-field></field>
+                </form-single>
+            </box-body>
+        </container-box>
+
+        <container-box>
+            <box-header title="What changes"/>
+            <box-body>
+                <form-list name="DiffList" list="diffList" skip-form="true">
+                    <field name="field"><default-field title="Field"><display/></default-field></field>
+                    <field name="oldValue"><default-field title="Current"><display/></default-field></field>
+                    <field name="newValue"><default-field title="Requested"><display/></default-field></field>
+                </form-list>
+            </box-body>
+        </container-box>
+
+        <section name="DecisionSection" condition="canDecide">
+            <widgets>
+                <container-dialog id="ApproveDialog" button-text="Approve">
+                    <form-single name="ApproveForm" transition="approve">
+                        <field name="requestId"><default-field><hidden/></default-field></field>
+                        <field name="decisionComment"><default-field title="Comment (optional)"><text-area rows="3"/></default-field></field>
+                        <field name="submitButton"><default-field title="Approve and apply"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+                <container-dialog id="RejectDialog" button-text="Reject">
+                    <form-single name="RejectForm" transition="reject">
+                        <field name="requestId"><default-field><hidden/></default-field></field>
+                        <field name="decisionComment"><default-field title="Why are you rejecting? (required)"><text-area rows="3"/></default-field></field>
+                        <field name="submitButton"><default-field title="Reject"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </widgets>
+        </section>
+        <section name="CancelSection" condition="isPending &amp;&amp; isRequester">
+            <widgets>
+                <form-single name="CancelForm" transition="cancel">
+                    <field name="requestId"><default-field><hidden/></default-field></field>
+                    <field name="submitButton"><default-field title="Cancel my request"><submit/></default-field></field>
+                </form-single>
+            </widgets>
+        </section>
+    </widgets>
+</screen>

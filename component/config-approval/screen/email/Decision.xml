@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        require-authentication="false" standalone="true">
+    <widgets>
+        <render-mode>
+            <text type="html,text"><![CDATA[
+<p>Your change request <b>${summaryText}</b> (CR ${requestId}) is now <b>${statusDescription}</b><#if deciderName??> (decided by ${deciderName})</#if>.</p>
+<#if decisionComment??><p>Comment: ${decisionComment}</p></#if>
+<#if errorText??><p>It could not be applied: ${errorText}</p></#if>
+<#list diffList as d><p>${d.field}: ${d.oldValue!"(empty)"} &rarr; ${d.newValue!"(empty)"}</p></#list>
+            ]]></text>
+        </render-mode>
+    </widgets>
+</screen>

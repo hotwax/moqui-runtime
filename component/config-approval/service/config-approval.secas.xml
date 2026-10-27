@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<secas xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-eca-3.xsd">
+    <!-- POC: gate on update#ServiceJob only. hold() strips guarded fields from the live params in pre-validate;
+         record() saves the request in post-service (only runs when the service succeeded). -->
+    <seca id="CcrHold_ServiceJobUpdate" service="update#moqui.service.job.ServiceJob" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="update#moqui.service.job.ServiceJob"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_ServiceJobUpdate" service="update#moqui.service.job.ServiceJob" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+
+    <!-- The maarg-util wrapper (REST PUT /serviceJobs/{jobName}) declares only its own parameters, so it must be gated
+         itself to see _changeReason; it strips paused, so the inner entity-auto call finds nothing left to hold. -->
+    <seca id="CcrHold_JobServicesUpdate" service="co.hotwax.job.JobServices.update#ServiceJob" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="co.hotwax.job.JobServices.update#ServiceJob"/>
+            <set field="gateEntityName" value="moqui.service.job.ServiceJob"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_JobServicesUpdate" service="co.hotwax.job.JobServices.update#ServiceJob" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+
+    <!-- The request is created inside the caller's transaction (nested call), where post-commit fires BEFORE the real
+         commit. tx-commit registers on the transaction itself and runs after it commits, in its own thread and
+         transaction, so the email sees the committed row and a mail failure can never roll back the maker's edit. -->
+    <seca id="CcrEmail_Created" service="co.hotwax.configapproval.ConfigApprovalServices.create#ConfigChangeRequest" when="tx-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail"
+                in-map="[requestId:requestId, emailTemplateId:'CCR_APPROVAL_REQUEST']"/></actions>
+    </seca>
+    <!-- approve# commits the Approved status first, then the replay runs in its own transaction -->
+    <seca id="CcrApply_Approved" service="co.hotwax.configapproval.ConfigApprovalServices.approve#ConfigChangeRequest" when="post-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest"
+                in-map="[requestId:requestId]"/></actions>
+    </seca>
+    <seca id="CcrEmail_Applied" service="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest" when="post-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail"
+                in-map="[requestId:requestId, emailTemplateId:'CCR_DECISION']"/></actions>
+    </seca>
+    <seca id="CcrEmail_Rejected" service="co.hotwax.configapproval.ConfigApprovalServices.reject#ConfigChangeRequest" when="post-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail"
+                in-map="[requestId:requestId, emailTemplateId:'CCR_DECISION']"/></actions>
+    </seca>
+</secas>

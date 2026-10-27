@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd">
+    <!-- master switch; when false the gate steps aside -->
+    <default-property name="config.approval.enabled" value="true"/>
+    <default-property name="config.approval.expire.hours" value="72"/>
+    <!-- false in v1: a missing reason is accepted but flagged -->
+    <default-property name="config.approval.reason.strict" value="false"/>
+
+    <!-- "Change Approval" menu under Hotwax Commerce; mounted from here so the oms component stays untouched -->
+    <screen-facade>
+        <screen location="component://oms/screen/Oms.xml">
+            <subscreens-item name="ChangeApproval" menu-title="Change Approval" menu-index="90"
+                    location="component://config-approval/screen/ChangeApproval.xml"/>
+        </screen>
+    </screen-facade>
+</moqui-conf>
