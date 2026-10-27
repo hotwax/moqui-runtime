@@ -1034,4 +1034,127 @@ class ConfigApprovalPocTests extends Specification {
         after2.statusId in ["CcrFailed", "CcrApplied"]
         println "AUDIT36 delete-after-gone: status=${after2.statusId} errorText=${after2.errorText}"
     }
+
+    private String heldOutcome(String who, String svc, Map params) {
+        ec.message.clearAll()
+        as_(who) { ec.service.sync().name(svc).parameters(params).call() }
+        String out = ec.message.messagesString + (ec.message.hasError() ? " ERR!" : "")
+        ec.message.clearAll()
+        return out
+    }
+
+    def "37 SystemMessageRemote add and delete are held as plain messages, nothing is written, the secret is masked, approval adds then deletes"() {
+        given:
+        Map pk = [systemMessageRemoteId: "POC_R37"]
+        def remote = { ec.entity.find("moqui.service.message.SystemMessageRemote").condition(pk).useCache(false).disableAuthz().one() }
+        when:
+        String m1 = heldOutcome("alice", "create#moqui.service.message.SystemMessageRemote", pk + [description: "r37", sendUrl: "https://x.example.com", password: "topSecretPw", _changeReason: "new vendor"])
+        def reqs = ccrsFor("moqui.service.message.SystemMessageRemote", pk)
+        then:
+        m1.contains("Request sent for approval") && !m1.contains("ERR!")
+        remote() == null
+        reqs.size() == 1
+        reqs[0].diffJson.contains("POC_R37")
+        !reqs[0].diffJson.contains("topSecretPw")
+        !reqs[0].summaryText.contains("topSecretPw")
+
+        when:
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs[0].requestId]).call() }
+        ec.message.clearAll()
+        String m2 = heldOutcome("alice", "delete#moqui.service.message.SystemMessageRemote", pk + [_changeReason: "retired"])
+        then:
+        remote() != null
+        m2.contains("Request sent for approval") && !m2.contains("ERR!")
+
+        when:
+        def del = ccrsFor("moqui.service.message.SystemMessageRemote", pk).find { it.changeTypeEnumId == "CctDelete" }
+        as_("dave") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: del.requestId]).call() }
+        ec.message.clearAll()
+        then:
+        remote() == null
+    }
+
+    def "38 deleting a whole job is held as a plain message, the job stays, approval deletes it"() {
+        given: makeJob("poc_j38")
+        when:
+        String m = heldOutcome("alice", "delete#moqui.service.job.ServiceJob", [jobName: "poc_j38", _changeReason: "obsolete"])
+        def r = ec.entity.find(CCR).condition("entityName", "moqui.service.job.ServiceJob").condition("pkJson", '{"jobName":"poc_j38"}').condition("changeTypeEnumId", "CctDelete").disableAuthz().useCache(false).list()
+        then:
+        m.contains("Request sent for approval") && !m.contains("ERR!")
+        job("poc_j38") != null
+        r.size() == 1
+
+        when:
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: r[0].requestId]).call() }
+        ec.message.clearAll()
+        then:
+        job("poc_j38") == null
+    }
+
+    def "39 an approval email with nobody to send to is logged, never throws or fails the request"() {
+        given: makeJob("poc_j39")
+        heldOutcome("alice", "update#moqui.service.job.ServiceJob", [jobName: "poc_j39", paused: "Y", _changeReason: "r"])
+        String rid = ccrs("poc_j39")[0].requestId
+        def members = ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS").disableAuthz().useCache(false).list()
+        when: "every approver is end-dated, so there is no recipient"
+        def savedThru39 = members.collectEntries { [(it.userId): it.thruDate] }
+        ec.artifactExecution.disableAuthz()
+        members.each { it.thruDate = new Timestamp(System.currentTimeMillis() - 1000L); it.update() }
+        ec.message.clearAll()
+        ec.service.sync().name(SVC + "send#ConfigChangeEmail").parameters([requestId: rid, emailTemplateId: "CCR_APPROVAL_REQUEST"]).disableAuthz().call()
+        boolean failed = ec.message.hasError()
+        ec.message.clearAll()
+        members.each { it.thruDate = savedThru39[it.userId]; it.update() }
+        ec.artifactExecution.enableAuthz()
+        then:
+        !failed
+        ccrs("poc_j39")[0].statusId == "CcrPending"
+    }
+
+    def "40 the request and new-request screens render for a maker, with the cancel dialog, key fields of an add, and the generic picker"() {
+        given:
+        Map pk = [jobName: "poc_j40", parameterName: "retries"]
+        makeJob("poc_j40")
+        heldOutcome("alice", "create#moqui.service.job.ServiceJobParameter", pk + [parameterValue: "3", _changeReason: "retry more"])
+        String rid = ccrsFor("moqui.service.job.ServiceJobParameter", pk)[0].requestId
+        def render = { String loc, String user, Map params ->
+            ec.user.internalLoginUser(user)
+            ec.context.push(params)
+            try { return ec.screen.makeRender().webappName("webroot").rootScreen(loc).renderMode("html").render() }
+            finally { ec.context.pop(); ec.user.logoutUser() }
+        }
+        when:
+        String req = render("component://config-approval/screen/ChangeApproval/Request.xml", "poc_alice", [requestId: rid])
+        String nr = render("component://config-approval/screen/ChangeApproval/NewRequest.xml", "poc_alice", [:])
+        String nrPicked = render("component://config-approval/screen/ChangeApproval/NewRequest.xml", "poc_alice", [entityName: "moqui.service.job.ServiceJobParameter", changeType: "create"])
+        then:
+        req.contains("CancelDialog") && req.contains("parameterName") && req.contains("retries") && req.contains("jobName")
+        req.contains("ReasonDialog")
+        nr.contains("moqui.service.job.ServiceJobParameter")
+        nrPicked.contains("PickForm")
+    }
+
+    def "41 setup page warns when there is a lone approver or an approver without an email"() {
+        when:
+        def members = ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS").disableAuthz().useCache(false).list()
+        ec.artifactExecution.disableAuthz()
+        def others = members.findAll { it.userId != "poc_bob" }
+        def savedThru = others.collectEntries { [(it.userId): it.thruDate] }
+        others.each { it.thruDate = new Timestamp(System.currentTimeMillis() - 1000L); it.update() }
+        ec.artifactExecution.enableAuthz()
+        String lone, healthy
+        ec.user.internalLoginUser("poc_root")
+        try { lone = ec.screen.makeRender().webappName("webroot").rootScreen("component://config-approval/screen/ChangeApproval/Setup.xml").renderMode("html").render() }
+        finally { ec.user.logoutUser() }
+        ec.artifactExecution.disableAuthz()
+        others.each { it.thruDate = savedThru[it.userId]; it.update() }
+        ec.artifactExecution.enableAuthz()
+        ec.user.internalLoginUser("poc_root")
+        try { healthy = ec.screen.makeRender().webappName("webroot").rootScreen("component://config-approval/screen/ChangeApproval/Setup.xml").renderMode("html").render() }
+        finally { ec.user.logoutUser() }
+        then:
+        lone.contains("Only 1 approver")
+        !healthy.contains("Only 1 approver")
+        healthy.contains("bob@example.com")
+    }
 }
