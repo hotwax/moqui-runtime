@@ -45,6 +45,15 @@
         <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest"
                 in-map="[requestId:requestId]"/></actions>
     </seca>
+    <seca id="CcrApply_Retry" service="co.hotwax.configapproval.ConfigApprovalServices.retry#ConfigChangeRequest" when="post-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest"
+                in-map="[requestId:requestId]"/></actions>
+    </seca>
+    <!-- break-glass rows are written inside the caller's transaction too, so mail after the real commit like CcrEmail_Created -->
+    <seca id="CcrEmail_BreakGlass" service="co.hotwax.configapproval.ConfigApprovalServices.record#BreakGlassChange" when="tx-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail"
+                in-map="[requestId:requestId, emailTemplateId:'CCR_BREAK_GLASS']"/></actions>
+    </seca>
     <seca id="CcrEmail_Applied" service="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest" when="post-commit">
         <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail"
                 in-map="[requestId:requestId, emailTemplateId:'CCR_DECISION']"/></actions>

@@ -56,6 +56,10 @@
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"
             subject="Reminder, still waiting: ${summaryText} (CR ${requestId})"/>
+    <moqui.basic.email.EmailTemplate emailTemplateId="CCR_BREAK_GLASS" description="Config change: break-glass used"
+            emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
+            bodyScreenLocation="component://config-approval/screen/email/Decision.xml"
+            subject="Break-glass used: ${summaryText} (CR ${requestId})"/>
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_DECISION" description="Config change: decided or applied"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/Decision.xml"

@@ -12,6 +12,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 try {
     if (originalValue == null) return
     if (((ExecutionContextImpl) ec).contextStack.getSharedMap().get("ccr.replay")) return   // our own apply#
+    if (((ExecutionContextImpl) ec).contextStack.getSharedMap().get("ccr.breakglass")) return  // recorded as break-glass by the gate
     if ("false".equals(System.getProperty("config.approval.enabled"))) return
     if (!ec.user.userId) return                                  // scheduler, data load, startup: not a person
     if (ec.user.isInGroup("CONFIG_APPROVAL_BYPASS")) return      // bypass accounts are allowed to write directly

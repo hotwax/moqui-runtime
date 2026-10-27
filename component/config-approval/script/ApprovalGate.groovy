@@ -14,6 +14,8 @@ Map shared = ((ExecutionContextImpl) ec).contextStack.getSharedMap()
 
 if (gatePhase == "hold") {
     if (shared.get(REPLAY)) return
+    // pre-validate rules can run more than once on the same parameters map; a break-glass decision already made for this map stands
+    if (shared.get("ccr.breakglass") == System.identityHashCode(parameters)) return
     if ("false".equals(System.getProperty("config.approval.enabled"))) return
     // scheduler, data load, startup etc have no user: not a person making a change, so not gated
     String userId = ec.user.userId
@@ -66,8 +68,12 @@ if (gatePhase == "hold") {
     // custom params are not declared on the service so validation would drop them: take them from the live map now
     Object reasonParam = parameters.remove("_changeReason")
     Object plannedFixParam = parameters.remove("_plannedFixDate")
+    Object breakGlassParam = parameters.remove("_breakGlass")
     if (!diff) return
-    held.each { String f, Object v -> parameters.remove(f) }
+    // break-glass: explicit (_breakGlass=Y), only for CONFIG_BREAK_GLASS members, and only with a reason. Anything else is held as usual.
+    boolean breakGlass = "Y".equals(breakGlassParam) && ec.user.isInGroup("CONFIG_BREAK_GLASS") && reasonParam
+    if (!breakGlass) held.each { String f, Object v -> parameters.remove(f) }
+    else shared.put("ccr.breakglass", System.identityHashCode(parameters))   // tells the ungated-write EECA this direct write is accounted for
 
     String channel = ec.web != null ? "rest" : "service"
     List pending = (List) shared.get(PENDING)
@@ -80,11 +86,20 @@ if (gatePhase == "hold") {
             changeSourceEnumId: "CcsApproval", changeTypeEnumId: "CctUpdate",
             parametersJson: JsonOutput.toJson(pkMap + held), originalJson: JsonOutput.toJson(original),
             diffJson: JsonOutput.toJson(diff), summaryText: summary,
-            reason: reasonParam, plannedFixDate: plannedFixParam, requestChannel: channel])
+            reason: reasonParam, plannedFixDate: plannedFixParam, requestChannel: channel, breakGlass: breakGlass])
 } else if (gatePhase == "record") {
+    shared.remove("ccr.breakglass")
     List pending = (List) shared.remove(PENDING)
     if (!pending) return
     for (Map h in pending) {
+        if (h.remove("breakGlass")) {
+            // the change goes through as written; keep a record and tell the approvers
+            h.remove("changeSourceEnumId"); h.remove("changeTypeEnumId")
+            Map bg = ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.record#BreakGlassChange")
+                    .parameters(h).disableAuthz().call()
+            ec.message.addMessage("Break-glass change applied (CR ${bg.requestId}). Approvers have been told.".toString(), "warning")
+            continue
+        }
         Map out = ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.create#ConfigChangeRequest")
                 .parameters(h).disableAuthz().call()
         ec.message.addMessage("Request sent for approval (CR ${out.requestId}). You will get an email when it is decided.".toString(), "success")

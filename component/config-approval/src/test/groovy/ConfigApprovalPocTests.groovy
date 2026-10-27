@@ -53,6 +53,7 @@ class ConfigApprovalPocTests extends Specification {
         as_(who) { ec.service.sync().name("update#moqui.service.job.ServiceJob").parameters(params).call() }
     }
     private EntityValue job(String name) { ec.entity.find("moqui.service.job.ServiceJob").condition("jobName", name).useCache(false).disableAuthz().one() }
+    private void waitFor(Closure c) { for (int i = 0; i < 50 && !c(); i++) Thread.sleep(200) }
     private List<EntityValue> ccrs(String jobName) {
         ec.entity.find(CCR).condition("pkJson", '{"jobName":"' + jobName + '"}').orderBy("requestedDate").disableAuthz().useCache(false).list()
     }
@@ -451,5 +452,59 @@ class ConfigApprovalPocTests extends Specification {
         job("poc_j19b").paused == "N"
         cleanup:
         ec.message.clearAll()
+    }
+
+    def "20 break-glass: only explicit, only for the group, only with a reason; applied at once, recorded once, approvers told"() {
+        given:
+        makeJob("poc_j20a"); makeJob("poc_j20b"); makeJob("poc_j20c")
+        ec.artifactExecution.disableAuthz()
+        ec.entity.makeValue("moqui.security.UserGroupMember").setAll([userGroupId: "CONFIG_BREAK_GLASS", userId: "poc_dave",
+                fromDate: new Timestamp(System.currentTimeMillis() - 86400000L)]).createOrUpdate()
+        ec.artifactExecution.enableAuthz()
+        when:
+        // alice is not in the group: the flag changes nothing, the pause is held as usual
+        callUpdate("alice", [jobName: "poc_j20a", paused: "Y", _changeReason: "urgent", _breakGlass: "Y"])
+        // dave is, but gives no reason: held
+        callUpdate("dave", [jobName: "poc_j20b", paused: "Y", _breakGlass: "Y"])
+        // dave with a reason: goes straight through
+        ec.message.clearAll()
+        callUpdate("dave", [jobName: "poc_j20c", paused: "Y", _breakGlass: "Y", _changeReason: "prod incident, runaway job"])
+        def msgs = ec.message.messages
+        def c = ccrs("poc_j20c")
+        waitFor { ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_BREAK_GLASS").disableAuthz().useCache(false).list().any { it.subject.contains(c[0].requestId) } }
+        def mail = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_BREAK_GLASS").disableAuthz().useCache(false).list().findAll { it.subject.contains(c[0].requestId) }
+        then:
+        ccrs("poc_j20a")[0].statusId == "CcrPending" && job("poc_j20a").paused == "N"
+        ccrs("poc_j20b")[0].statusId == "CcrPending" && job("poc_j20b").paused == "N"
+        job("poc_j20c").paused == "Y"
+        c.size() == 1
+        c[0].changeSourceEnumId == "CcsBreakGlass" && c[0].statusId == "CcrApplied" && c[0].reason.contains("runaway")
+        msgs.any { it.contains("Break-glass change applied") }
+        mail.size() == 1
+        mail[0].toAddresses.contains("bob@example.com")
+        cleanup:
+        ec.message.clearAll()
+    }
+
+    def "21 retry: only an approver can retry a failed request, and it is applied again"() {
+        given:
+        makeJob("poc_j21")
+        callUpdate("alice", [jobName: "poc_j21", paused: "Y", _changeReason: "retry me"])
+        String rid = ccrs("poc_j21")[0].requestId
+        ec.artifactExecution.disableAuthz()
+        ec.entity.find(CCR).condition("requestId", rid).one().set("statusId", "CcrFailed").set("errorText", "boom").update()
+        ec.artifactExecution.enableAuthz()
+        when:
+        ec.message.clearAll()
+        as_("carol") { ec.service.sync().name(SVC + "retry#ConfigChangeRequest").parameters([requestId: rid]).call() }
+        def denied = ec.message.hasError(); ec.message.clearAll()
+        as_("bob") { ec.service.sync().name(SVC + "retry#ConfigChangeRequest").parameters([requestId: rid]).call() }
+        def errs = ec.message.errors; ec.message.clearAll()
+        then:
+        denied
+        errs.isEmpty()
+        ccrs("poc_j21")[0].statusId == "CcrApplied"
+        ccrs("poc_j21")[0].errorText == null
+        job("poc_j21").paused == "Y"
     }
 }
