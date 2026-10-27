@@ -34,9 +34,15 @@
         <table class="emailContentTable">
             <thead><tr><td class="emailTitle"><p class="date">${.now?string["MMMM dd, yyyy"]}</p></td></tr></thead>
             <tbody><tr><td class="box">
+<#if breakGlass!false>
+<p>Hello,</p>
+<p><b>${requesterName}</b> used break-glass: <b>${summaryText}</b> (CR ${requestId}) was applied immediately, without approval. Please review it.</p>
+<p>Reason: ${reason!"(no reason given)"}</p>
+<#else>
 <p>Hello ${requesterName},</p>
 <p>Your change request <b>${summaryText}</b> (CR ${requestId}) is now <b>${statusDescription}</b><#if deciderName??> (decided by ${deciderName})</#if>.</p>
 <#if decisionComment??><p>Comment: ${decisionComment}</p></#if>
+</#if>
 <#if errorText??><p>It could not be applied: ${errorText}</p></#if>
 <table class="diffTable">
     <tr><th>Setting</th><th>Current</th><th>Requested</th></tr>

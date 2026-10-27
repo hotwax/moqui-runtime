@@ -259,6 +259,7 @@
                     errorText: ccr.errorText, requesterName: requester ? (requester.userFullName ?: requester.username) : ccr.requestedByUserId,
                     deciderName: decider ? (decider.userFullName ?: decider.username) : null,
                     diffList: ccr.diffJson ? new JsonSlurper().parseText(ccr.diffJson) : [],
+                    breakGlass: emailTemplateId == "CCR_BREAK_GLASS",
                     reviewUrl: host + "/apps/Oms/ChangeApproval/Request?requestId=" + requestId]
             ec.service.sync().name("org.moqui.impl.EmailServices.send#EmailTemplate")
                     .parameters([emailTemplateId: emailTemplateId, toAddresses: to.join(","), bodyParameters: bodyParameters,
