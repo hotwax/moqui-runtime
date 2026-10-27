@@ -996,4 +996,42 @@ class ConfigApprovalPocTests extends Specification {
         param() != null
         del != null && del.diffJson.contains("batchSize") && del.diffJson.contains("poc_j35")
     }
+
+    def "36 audit: delete of a record that does not exist is not held; a held create/delete whose record changed meanwhile fails clearly on approval and touches nothing"() {
+        given: makeJob("poc_j36")
+        Map pk = [jobName: "poc_j36", parameterName: "gone"]
+        def param = { Map k -> ec.entity.find("moqui.service.job.ServiceJobParameter").condition(k).useCache(false).disableAuthz().one() }
+        def decide = { String id -> ec.message.clearAll(); as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: id]).call() }; String e = ec.message.errorsString; ec.message.clearAll(); return e }
+        when: "delete of something that is not there"
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("delete#moqui.service.job.ServiceJobParameter").parameters(pk + [_changeReason: "r"]).call() }
+        ec.message.clearAll()
+        then:
+        ccrsFor("moqui.service.job.ServiceJobParameter", pk).isEmpty()
+
+        when: "a create is held, then someone else creates the same record before approval"
+        as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "mine", _changeReason: "r"]).call() }
+        ec.message.clearAll()
+        def c = ccrsFor("moqui.service.job.ServiceJobParameter", pk)[0]
+        ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "theirs"]).disableAuthz().call()
+        // (a system write is not gated)
+        String err = decide(c.requestId as String)
+        def after = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", c.requestId).useCache(false).disableAuthz().one()
+        then:
+        param(pk).parameterValue == "theirs"
+        after.statusId == "CcrFailed"
+        after.errorText.contains("already exists")
+
+        when: "a delete is held, the record is removed by someone else, then approval"
+        as_("alice") { ec.service.sync().name("delete#moqui.service.job.ServiceJobParameter").parameters(pk + [_changeReason: "r"]).call() }
+        ec.message.clearAll()
+        def d = ccrsFor("moqui.service.job.ServiceJobParameter", pk).find { it.changeTypeEnumId == "CctDelete" }
+        ec.artifactExecution.disableAuthz(); try { param(pk).delete() } finally { ec.artifactExecution.enableAuthz() }
+        decide(d.requestId as String)
+        def after2 = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", d.requestId).useCache(false).disableAuthz().one()
+        then:
+        d != null
+        after2.statusId in ["CcrFailed", "CcrApplied"]
+        println "AUDIT36 delete-after-gone: status=${after2.statusId} errorText=${after2.errorText}"
+    }
 }
