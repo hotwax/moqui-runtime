@@ -677,4 +677,33 @@ class ConfigApprovalPocTests extends Specification {
         reqs2[1].diffJson.contains("fromDate")
         job("poc_j27").fromDate == null
     }
+
+    def "28 two people ask for different fields of the same job: both are held, and approving one after the other applies both"() {
+        given: makeJob("poc_j28")
+        when:
+        ec.message.clearAll()
+        callUpdate("alice", [jobName: "poc_j28", paused: "Y", _changeReason: "migration"])
+        callUpdate("carol", [jobName: "poc_j28", transactionTimeout: 900, _changeReason: "long export"])
+        def reqs = ccrs("poc_j28")
+        then:
+        reqs.size() == 2
+        reqs.every { it.statusId == "CcrPending" }
+        job("poc_j28").paused == "N"
+        job("poc_j28").transactionTimeout == null
+
+        when:
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs.find { it.requestedByUserId == "poc_alice" }.requestId]).call() }
+        then:
+        job("poc_j28").paused == "Y"
+        job("poc_j28").transactionTimeout == null
+
+        when:
+        as_("dave") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs.find { it.requestedByUserId == "poc_carol" }.requestId]).call() }
+        def after = ccrs("poc_j28")
+        then:
+        ec.message.errors.isEmpty()
+        after.every { it.statusId == "CcrApplied" }
+        job("poc_j28").paused == "Y"          // the second apply did not undo the first
+        job("poc_j28").transactionTimeout == 900
+    }
 }

@@ -35,6 +35,7 @@
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjCron" enumCode="moqui.service.job.ServiceJob.cronExpression" description="Job schedule (cron)"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjFrom" enumCode="moqui.service.job.ServiceJob.fromDate" description="Job runs from"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjThru" enumCode="moqui.service.job.ServiceJob.thruDate" description="Job runs until"/>
+    <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjTxTimeout" enumCode="moqui.service.job.ServiceJob.transactionTimeout" description="Job transaction timeout"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjRepeat" enumCode="moqui.service.job.ServiceJob.repeatCount" description="Job repeat count"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSjpValue" enumCode="moqui.service.job.ServiceJobParameter.parameterValue" description="Job parameter value"/>
     <moqui.basic.Enumeration enumTypeId="ConfigApprovalField" enumId="CafSmrUrl" enumCode="moqui.service.message.SystemMessageRemote.sendUrl" description="Remote send URL"/>
