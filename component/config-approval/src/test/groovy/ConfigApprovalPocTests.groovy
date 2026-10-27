@@ -845,4 +845,42 @@ class ConfigApprovalPocTests extends Specification {
         del2.contains("already waiting")
         deletes.size() == 1
     }
+
+    def "32 break-glass also works for create and delete: applied at once, recorded as break-glass, never held or deduped"() {
+        given: makeJob("poc_j32")
+        Map pk = [jobName: "poc_j32", parameterName: "batchSize"]
+        def param = { ec.entity.find("moqui.service.job.ServiceJobParameter").condition(pk).useCache(false).disableAuthz().one() }
+        when: "no reason: break-glass is not honoured, the create is held like any other"
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "5", _breakGlass: "Y"]).call() }
+        ec.message.clearAll()
+        then:
+        param() == null
+
+        when: "with a reason it applies immediately"
+        ccrsFor("moqui.service.job.ServiceJobParameter", pk).each { r ->
+            as_("bob") { ec.service.sync().name(SVC + "reject#ConfigChangeRequest").parameters([requestId: r.requestId, decisionComment: "clear"]).call() } }
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "9", _breakGlass: "Y", _changeReason: "prod incident"]).call() }
+        def errC = ec.message.errorsString
+        ec.message.clearAll()
+        def createdBg = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeSourceEnumId == "CcsBreakGlass" && it.changeTypeEnumId == "CctCreate" }
+        then:
+        errC == ""
+        param()?.parameterValue == "9"
+        createdBg.size() == 1
+        createdBg[0].statusId == "CcrApplied"
+        createdBg[0].reason == "prod incident"
+
+        when: "delete the same way"
+        as_("alice") { ec.service.sync().name("delete#moqui.service.job.ServiceJobParameter").parameters(pk + [_breakGlass: "Y", _changeReason: "prod incident, remove"]).call() }
+        def errD = ec.message.errorsString
+        ec.message.clearAll()
+        def deletedBg = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeSourceEnumId == "CcsBreakGlass" && it.changeTypeEnumId == "CctDelete" }
+        then:
+        errD == ""
+        param() == null
+        deletedBg.size() == 1
+        deletedBg[0].statusId == "CcrApplied"
+    }
 }

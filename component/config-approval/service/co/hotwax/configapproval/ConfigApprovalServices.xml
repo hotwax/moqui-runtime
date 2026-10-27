@@ -203,13 +203,13 @@
             <parameter name="parametersJson" allow-html="any"/><parameter name="originalJson" allow-html="any"/>
             <parameter name="diffJson" allow-html="any"/>
             <parameter name="summaryText"/><parameter name="reason" required="true"/><parameter name="plannedFixDate" type="Timestamp"/>
-            <parameter name="requestChannel"/>
+            <parameter name="requestChannel"/><parameter name="changeTypeEnumId" default-value="CctUpdate"/>
         </in-parameters>
         <out-parameters><parameter name="requestId"/></out-parameters>
         <actions><script><![CDATA[
             Timestamp now = ec.user.nowTimestamp
             def ccr = ec.entity.makeValue("co.hotwax.configapproval.ConfigChangeRequest")
-            ccr.setAll([changeSourceEnumId: "CcsBreakGlass", changeTypeEnumId: "CctUpdate", entityName: entityName, pkJson: pkJson,
+            ccr.setAll([changeSourceEnumId: "CcsBreakGlass", changeTypeEnumId: changeTypeEnumId, entityName: entityName, pkJson: pkJson,
                     serviceName: serviceName, parametersJson: parametersJson, originalJson: originalJson, diffJson: diffJson,
                     summaryText: summaryText, reason: reason, reasonMissing: "N", plannedFixDate: plannedFixDate, statusId: "CcrApplied",
                     requestedByUserId: ec.user.userId, requestedDate: now, decidedByUserId: ec.user.userId, decidedDate: now, appliedDate: now,

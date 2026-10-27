@@ -108,9 +108,22 @@ if (gatePhase == "hold") {
         }
         String shortName = entityName.substring(entityName.lastIndexOf('.') + 1)
         String summaryC = (isCreate ? "Add " : "Delete ") + shortName + " " + pkMap.values().join("/")
-        // the maker gets no visible answer in some screens and clicks again: the same ask is not saved twice
         String changeTypeC = isCreate ? "CctCreate" : "CctDelete"
         String pkJsonC = JsonOutput.toJson(pkMap)
+        // break-glass: explicit, with a reason. The service runs as written; the record phase saves it as already applied.
+        boolean bgAllowedC = !"true".equals(System.getProperty("config.approval.breakglass.restrict")) || ec.user.isInGroup("CONFIG_BREAK_GLASS")
+        if ("Y".equals(breakGlassParam) && bgAllowedC && reasonParam) {
+            shared.put("ccr.breakglass", System.identityHashCode(parameters))
+            List pendingC = (List) shared.get(PENDING)
+            if (pendingC == null) { pendingC = []; shared.put(PENDING, pendingC) }
+            pendingC.add([serviceName: gateServiceName, entityName: entityName, pkJson: pkJsonC,
+                    changeSourceEnumId: "CcsApproval", changeTypeEnumId: changeTypeC,
+                    parametersJson: JsonOutput.toJson(pkMap + createHeld), originalJson: JsonOutput.toJson(deleteOriginal),
+                    diffJson: JsonOutput.toJson(createDiff), summaryText: summaryC,
+                    reason: reasonParam, plannedFixDate: plannedFixParam, requestChannel: ec.web != null ? "rest" : "service", breakGlass: true])
+            return
+        }
+        // the maker gets no visible answer in some screens and clicks again: the same ask is not saved twice
         EntityValue already = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("entityName", entityName)
                 .condition("pkJson", pkJsonC).condition("changeTypeEnumId", changeTypeC).condition("statusId", "CcrPending")
                 .useCache(false).disableAuthz().list().find { true }
@@ -162,7 +175,7 @@ if (gatePhase == "hold") {
     for (Map h in pending) {
         if (h.remove("breakGlass")) {
             // the change goes through as written; keep a record and tell the approvers
-            h.remove("changeSourceEnumId"); h.remove("changeTypeEnumId")
+            h.remove("changeSourceEnumId")
             Map bg = ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.record#BreakGlassChange")
                     .parameters(h).disableAuthz().call()
             ec.message.addMessage("Break-glass change applied (CR ${bg.requestId}). Approvers have been told.".toString(), "warning")

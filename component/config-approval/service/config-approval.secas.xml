@@ -126,6 +126,38 @@
         </actions>
     </seca>
 
+    <!-- break-glass add/delete runs the real service, so the record phase writes its audit row (a held one never gets here) -->
+    <seca id="CcrRecord_SjParamCreate" service="create#moqui.service.job.ServiceJobParameter" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SjParamDelete" service="delete#moqui.service.job.ServiceJobParameter" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SmrCreate" service="create#moqui.service.message.SystemMessageRemote" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SmrDelete" service="delete#moqui.service.message.SystemMessageRemote" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrRecord_SjDelete" service="delete#moqui.service.job.ServiceJob" when="post-service">
+        <actions>
+            <set field="gatePhase" value="record"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+
     <!-- The request is created inside the caller's transaction (nested call), where post-commit fires BEFORE the real
          commit. tx-commit registers on the transaction itself and runs after it commits, in its own thread and
          transaction, so the email sees the committed row and a mail failure can never roll back the maker's edit. -->
