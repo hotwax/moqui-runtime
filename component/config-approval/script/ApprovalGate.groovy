@@ -10,6 +10,13 @@ import org.moqui.impl.context.ExecutionContextImpl
 final String REPLAY = "ccr.replay"    // requestId being applied by apply#ConfigChangeRequest
 final String PENDING = "ccr.pending"  // List<Map> held changes, saved by the record phase
 
+void holdStop(String text, String requestId) {
+    // the service is stopped with an error (the only way a pre-validate rule can); the post-commit rule in HeldMessage.groovy
+    // turns that error into a plain message, so the person sees "request sent" and not a failure
+    ((ExecutionContextImpl) ec).contextStack.getSharedMap().put("ccr.heldMsg", text)
+    ec.message.addError(text)
+}
+
 Map shared = ((ExecutionContextImpl) ec).contextStack.getSharedMap()
 
 if (gatePhase == "hold") {
@@ -90,6 +97,8 @@ if (gatePhase == "hold") {
         List createDiff = []
         Map deleteOriginal = [:]
         if (isCreate) {
+            // the key fields go in the diff too, so the request page says which record is being added
+            pkNames.each { String k -> if (pkMap.get(k) != null) createDiff.add([field: k, oldValue: null, newValue: pkMap.get(k).toString()]) }
             for (String f in new ArrayList(parameters.keySet())) {
                 if (pkNames.contains(f) || !ed.isField(f) || parameters.get(f) == null || "".equals(parameters.get(f))) continue
                 createHeld.put(f, parameters.get(f))
@@ -97,6 +106,7 @@ if (gatePhase == "hold") {
                 createDiff.add([field: f, oldValue: null, newValue: secretF ? "(changed)" : parameters.get(f).toString()])
             }
         } else {
+            pkNames.each { String k -> if (pkMap.get(k) != null) createDiff.add([field: k, oldValue: pkMap.get(k).toString(), newValue: "(deleted)"]) }
             for (String f in guarded.keySet()) {
                 Object v = current.get(f)
                 if (v == null) continue
@@ -104,7 +114,6 @@ if (gatePhase == "hold") {
                 createDiff.add([field: f, oldValue: secretF ? "(changed)" : v.toString(), newValue: "(deleted)"])
                 deleteOriginal.put(f, v.toString())
             }
-            if (!createDiff) createDiff.add([field: "(record)", oldValue: "exists", newValue: "(deleted)"])
         }
         String shortName = entityName.substring(entityName.lastIndexOf('.') + 1)
         String summaryC = (isCreate ? "Add " : "Delete ") + shortName + " " + pkMap.values().join("/")
@@ -132,7 +141,7 @@ if (gatePhase == "hold") {
             requestIdC = already.requestId
             shared.put("ccr.held", System.identityHashCode(parameters))
             ec.web?.response?.addHeader("X-Config-Change-Request", requestIdC)
-            ec.message.addError("A request for this is already waiting for approval (CR ${requestIdC}). Nothing was ${isCreate ? 'added' : 'deleted'} yet.".toString())
+            holdStop("A request for this is already waiting for approval (CR ${requestIdC}). Nothing was ${isCreate ? 'added' : 'deleted'} yet.".toString(), requestIdC)
             return
         }
         Map outC = ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.create#ConfigChangeRequest")
@@ -144,7 +153,7 @@ if (gatePhase == "hold") {
                 .requireNewTransaction(true).disableAuthz().call()
         shared.put("ccr.held", System.identityHashCode(parameters))
         ec.web?.response?.addHeader("X-Config-Change-Request", outC.requestId as String)
-        ec.message.addError("Request sent for approval (CR ${outC.requestId}). Nothing was ${isCreate ? 'added' : 'deleted'} yet; you will get an email when it is decided.".toString())
+        holdStop("Request sent for approval (CR ${outC.requestId}). Nothing was ${isCreate ? 'added' : 'deleted'} yet; you will get an email when it is decided.".toString(), outC.requestId as String)
         return
     }
     if (!diff) return

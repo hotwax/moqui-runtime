@@ -776,11 +776,11 @@ class ConfigApprovalPocTests extends Specification {
         when:
         ec.message.clearAll()
         as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "100", _changeReason: "new batch size"]).call() }
-        def err1 = ec.message.errorsString
+        def err1 = ec.message.messagesString + (ec.message.hasError() ? " ERR!" : "")
         ec.message.clearAll()
         def reqs = ccrsFor("moqui.service.job.ServiceJobParameter", pk)
         then:
-        err1.contains("Request sent for approval")
+        err1.contains("Request sent for approval") && !err1.contains("ERR!")
         param() == null
         reqs.size() == 1
         reqs[0].changeTypeEnumId == "CctCreate"
@@ -797,11 +797,11 @@ class ConfigApprovalPocTests extends Specification {
         when: "delete is held the same way"
         ec.message.clearAll()
         as_("alice") { ec.service.sync().name("delete#moqui.service.job.ServiceJobParameter").parameters(pk + [_changeReason: "not needed"]).call() }
-        def err2 = ec.message.errorsString
+        def err2 = ec.message.messagesString + (ec.message.hasError() ? " ERR!" : "")
         ec.message.clearAll()
         def reqs2 = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeTypeEnumId == "CctDelete" }
         then:
-        err2.contains("Request sent for approval")
+        err2.contains("Request sent for approval") && !err2.contains("ERR!")
         param() != null
         reqs2.size() == 1
 
@@ -818,7 +818,7 @@ class ConfigApprovalPocTests extends Specification {
         def asks = { String verb ->
             ec.message.clearAll()
             as_("alice") { ec.service.sync().name(verb + "#moqui.service.job.ServiceJobParameter").parameters(pk + (verb == "create" ? [parameterValue: "7"] : [:]) + [_changeReason: "again"]).call() }
-            String e = ec.message.errorsString
+            String e = ec.message.messagesString + (ec.message.hasError() ? " ERR!" : "")
             ec.message.clearAll()
             return e
         }
@@ -828,8 +828,8 @@ class ConfigApprovalPocTests extends Specification {
         def third = asks("create")
         def creates = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeTypeEnumId == "CctCreate" }
         then:
-        first.contains("Request sent for approval")
-        second.contains("already waiting")
+        first.contains("Request sent for approval") && !first.contains("ERR!")
+        second.contains("already waiting") && !second.contains("ERR!")
         third.contains("already waiting")
         creates.size() == 1
         second.contains("CR " + creates[0].requestId)
@@ -841,7 +841,7 @@ class ConfigApprovalPocTests extends Specification {
         def del2 = asks("delete")
         def deletes = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeTypeEnumId == "CctDelete" }
         then:
-        del1.contains("Request sent for approval")
+        del1.contains("Request sent for approval") && !del1.contains("ERR!")
         del2.contains("already waiting")
         deletes.size() == 1
     }
@@ -958,5 +958,40 @@ class ConfigApprovalPocTests extends Specification {
         bg[0] == ""
         job().transactionTimeout == 600
         ccrsFor(JOB, [jobName: "poc_j34"]).any { it.changeSourceEnumId == "CcsBreakGlass" }
+    }
+
+    def "35 inside a screen/REST transaction a held add or delete is a plain message (not an error), nothing is written, and the request shows every key field"() {
+        given: makeJob("poc_j35")
+        Map pk = [jobName: "poc_j35", parameterName: "batchSize"]
+        def param = { ec.entity.find("moqui.service.job.ServiceJobParameter").condition(pk).useCache(false).disableAuthz().one() }
+        when:
+        ec.message.clearAll()
+        ec.transaction.begin(null)
+        as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "8", _changeReason: "r"]).call() }
+        boolean hadError = ec.message.hasError()
+        String msg = ec.message.messagesString
+        ec.transaction.commit()
+        ec.message.clearAll()
+        def reqs = ccrsFor("moqui.service.job.ServiceJobParameter", pk)
+        then:
+        !hadError
+        msg.contains("Request sent for approval")
+        param() == null
+        reqs.size() == 1
+        reqs[0].diffJson.contains("poc_j35") && reqs[0].diffJson.contains("batchSize") && reqs[0].diffJson.contains("8")
+
+        when: "approved, then a delete in a transaction behaves the same and names the record"
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs[0].requestId]).call() }
+        ec.message.clearAll()
+        ec.transaction.begin(null)
+        as_("alice") { ec.service.sync().name("delete#moqui.service.job.ServiceJobParameter").parameters(pk + [_changeReason: "r"]).call() }
+        boolean delErr = ec.message.hasError()
+        ec.transaction.commit()
+        ec.message.clearAll()
+        def del = ccrsFor("moqui.service.job.ServiceJobParameter", pk).find { it.changeTypeEnumId == "CctDelete" }
+        then:
+        !delErr
+        param() != null
+        del != null && del.diffJson.contains("batchSize") && del.diffJson.contains("poc_j35")
     }
 }

@@ -90,35 +90,35 @@
 
     <!-- Adding or deleting a record cannot be done by stripping fields: the request is saved in its own transaction and the
          service is stopped with a "request sent" message (see ApprovalGate.groovy) -->
-    <seca id="CcrHold_SjParamCreate" service="create#moqui.service.job.ServiceJobParameter" when="pre-validate">
+    <seca id="CcrHold_SjParamCreate" service="create#moqui.service.job.ServiceJobParameter" when="pre-service">
         <actions>
             <set field="gatePhase" value="hold"/>
             <set field="gateServiceName" value="create#moqui.service.job.ServiceJobParameter"/>
             <script location="component://config-approval/script/ApprovalGate.groovy"/>
         </actions>
     </seca>
-    <seca id="CcrHold_SjParamDelete" service="delete#moqui.service.job.ServiceJobParameter" when="pre-validate">
+    <seca id="CcrHold_SjParamDelete" service="delete#moqui.service.job.ServiceJobParameter" when="pre-service">
         <actions>
             <set field="gatePhase" value="hold"/>
             <set field="gateServiceName" value="delete#moqui.service.job.ServiceJobParameter"/>
             <script location="component://config-approval/script/ApprovalGate.groovy"/>
         </actions>
     </seca>
-    <seca id="CcrHold_SmrCreate" service="create#moqui.service.message.SystemMessageRemote" when="pre-validate">
+    <seca id="CcrHold_SmrCreate" service="create#moqui.service.message.SystemMessageRemote" when="pre-service">
         <actions>
             <set field="gatePhase" value="hold"/>
             <set field="gateServiceName" value="create#moqui.service.message.SystemMessageRemote"/>
             <script location="component://config-approval/script/ApprovalGate.groovy"/>
         </actions>
     </seca>
-    <seca id="CcrHold_SmrDelete" service="delete#moqui.service.message.SystemMessageRemote" when="pre-validate">
+    <seca id="CcrHold_SmrDelete" service="delete#moqui.service.message.SystemMessageRemote" when="pre-service">
         <actions>
             <set field="gatePhase" value="hold"/>
             <set field="gateServiceName" value="delete#moqui.service.message.SystemMessageRemote"/>
             <script location="component://config-approval/script/ApprovalGate.groovy"/>
         </actions>
     </seca>
-    <seca id="CcrHold_SjDelete" service="delete#moqui.service.job.ServiceJob" when="pre-validate">
+    <seca id="CcrHold_SjDelete" service="delete#moqui.service.job.ServiceJob" when="pre-service">
         <actions>
             <set field="gatePhase" value="hold"/>
             <set field="gateServiceName" value="delete#moqui.service.job.ServiceJob"/>
@@ -186,5 +186,22 @@
     <seca id="CcrEmail_Rejected" service="co.hotwax.configapproval.ConfigApprovalServices.reject#ConfigChangeRequest" when="post-commit">
         <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail"
                 in-map="[requestId:requestId, emailTemplateId:'CCR_DECISION']"/></actions>
+    </seca>
+
+    <!-- a held create/delete stops with an error; this turns it into a plain "request sent" message (see HeldMessage.groovy) -->
+    <seca id="CcrHeldMsg_SjParamCreate" service="create#moqui.service.job.ServiceJobParameter" when="post-commit" run-on-error="true">
+        <actions><script location="component://config-approval/script/HeldMessage.groovy"/></actions>
+    </seca>
+    <seca id="CcrHeldMsg_SjParamDelete" service="delete#moqui.service.job.ServiceJobParameter" when="post-commit" run-on-error="true">
+        <actions><script location="component://config-approval/script/HeldMessage.groovy"/></actions>
+    </seca>
+    <seca id="CcrHeldMsg_SmrCreate" service="create#moqui.service.message.SystemMessageRemote" when="post-commit" run-on-error="true">
+        <actions><script location="component://config-approval/script/HeldMessage.groovy"/></actions>
+    </seca>
+    <seca id="CcrHeldMsg_SmrDelete" service="delete#moqui.service.message.SystemMessageRemote" when="post-commit" run-on-error="true">
+        <actions><script location="component://config-approval/script/HeldMessage.groovy"/></actions>
+    </seca>
+    <seca id="CcrHeldMsg_SjDelete" service="delete#moqui.service.job.ServiceJob" when="post-commit" run-on-error="true">
+        <actions><script location="component://config-approval/script/HeldMessage.groovy"/></actions>
     </seca>
 </secas>
