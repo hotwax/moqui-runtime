@@ -117,6 +117,25 @@
         </actions>
     </service>
 
+    <service verb="set" noun="ConfigChangeRequestReason" authenticate="true">
+        <description>The requester adds or edits the reason after the fact, from the request page. Allowed while the request is
+            pending, or later only to fill a reason that was missing, so a recorded reason is never rewritten after the decision.</description>
+        <in-parameters>
+            <parameter name="requestId" required="true"/><parameter name="reason" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr" for-update="true"/>
+            <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+            <if condition="ccr.requestedByUserId != ec.user.userId">
+                <return error="true" message="Only the requester can change the reason of a request."/></if>
+            <if condition="ccr.statusId != 'CcrPending' &amp;&amp; ccr.reasonMissing != 'Y'">
+                <return error="true" message="The reason can no longer be changed once the request is decided."/></if>
+            <set field="ccr.reason" from="reason.trim()"/>
+            <set field="ccr.reasonMissing" value="N"/>
+            <entity-update value-field="ccr"/>
+        </actions>
+    </service>
+
     <service verb="apply" noun="ConfigChangeRequest" authenticate="true" allow-remote="false" transaction-timeout="300">
         <description>Replays an approved request: stale check, then the stored service call as the approver with the
             gate switched off for this call only. The replay runs in its own transaction so a failure rolls back the

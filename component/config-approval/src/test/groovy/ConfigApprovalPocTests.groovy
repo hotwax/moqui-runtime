@@ -883,4 +883,41 @@ class ConfigApprovalPocTests extends Specification {
         deletedBg.size() == 1
         deletedBg[0].statusId == "CcrApplied"
     }
+
+    def "33 the requester can add a reason from the request page; others cannot; a decided request keeps its reason"() {
+        given: makeJob("poc_j33")
+        Map pk = [jobName: "poc_j33", parameterName: "batchSize"]
+        as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "3"]).call() }
+        ec.message.clearAll()
+        def ccr = ccrsFor("moqui.service.job.ServiceJobParameter", pk)[0]
+        def fresh = { ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", ccr.requestId).useCache(false).disableAuthz().one() }
+        expect: "asked without a reason, it is flagged"
+        fresh().reasonMissing == "Y"
+
+        when: "someone else cannot set it"
+        ec.message.clearAll()
+        as_("dave") { ec.service.sync().name(SVC + "set#ConfigChangeRequestReason").parameters([requestId: ccr.requestId, reason: "hijack"]).call() }
+        def otherErr = ec.message.errorsString
+        ec.message.clearAll()
+        then:
+        otherErr.contains("Only the requester")
+        fresh().reason != "hijack"
+
+        when: "the maker adds it"
+        as_("alice") { ec.service.sync().name(SVC + "set#ConfigChangeRequestReason").parameters([requestId: ccr.requestId, reason: "  needed for the nightly load  "]).call() }
+        then:
+        ec.message.errors.isEmpty()
+        fresh().reason == "needed for the nightly load"
+        fresh().reasonMissing == "N"
+
+        when: "after the decision it is frozen"
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: ccr.requestId]).call() }
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name(SVC + "set#ConfigChangeRequestReason").parameters([requestId: ccr.requestId, reason: "rewrite history"]).call() }
+        def lateErr = ec.message.errorsString
+        ec.message.clearAll()
+        then:
+        lateErr.contains("can no longer be changed")
+        fresh().reason == "needed for the nightly load"
+    }
 }

@@ -17,6 +17,10 @@
         <service-call name="co.hotwax.configapproval.ConfigApprovalServices.cancel#ConfigChangeRequest"/>
         <default-response url="."/>
     </transition>
+    <transition name="setReason">
+        <service-call name="co.hotwax.configapproval.ConfigApprovalServices.set#ConfigChangeRequestReason"/>
+        <default-response url="."/>
+    </transition>
     <transition name="retry">
         <service-call name="co.hotwax.configapproval.ConfigApprovalServices.retry#ConfigChangeRequest"/>
         <default-response url="."/>
@@ -68,6 +72,18 @@
                         </form-list>
                     </box-body>
                 </container-box>
+
+                <section name="ReasonSection" condition="isRequester &amp;&amp; (isPending || ccr.reasonMissing == 'Y')">
+                    <widgets>
+                        <container-dialog id="ReasonDialog" button-text="${ccr.reason ? 'Edit reason' : 'Add reason'}">
+                            <form-single name="ReasonForm" transition="setReason">
+                                <field name="requestId"><default-field><hidden/></default-field></field>
+                                <field name="reason"><default-field title="Why is this change needed? (shown to approvers)"><text-area rows="3" default-value="${ccr.reason ?: ''}"/></default-field></field>
+                                <field name="submitButton"><default-field title="Save reason"><submit/></default-field></field>
+                            </form-single>
+                        </container-dialog>
+                    </widgets>
+                </section>
 
                 <section name="DecisionSection" condition="canDecide">
                     <widgets>

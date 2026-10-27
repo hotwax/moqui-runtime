@@ -93,6 +93,10 @@
     <moqui.security.ArtifactGroup artifactGroupId="CONFIG_APPROVAL_OWN_ACT" description="Cancel own request and read the digest"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_ACT" artifactTypeEnumId="AT_SERVICE" inheritAuthz="Y"
             artifactName="co.hotwax.configapproval.ConfigApprovalServices.cancel#ConfigChangeRequest"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_ACT" artifactTypeEnumId="AT_SERVICE" inheritAuthz="Y"
+            artifactName="co.hotwax.configapproval.ConfigApprovalServices.set#ConfigChangeRequestReason"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_ACT" artifactTypeEnumId="AT_XML_SCREEN_TRANS"
+            artifactName="component://config-approval/screen/ChangeApproval/Request.xml/setReason"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_ACT" artifactTypeEnumId="AT_XML_SCREEN_TRANS"
             artifactName="component://config-approval/screen/ChangeApproval/Request.xml/cancel"/>
     <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_OWN_ACT" userGroupId="ALL_USERS" artifactGroupId="CONFIG_APPROVAL_OWN_ACT"
