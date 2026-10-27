@@ -48,6 +48,20 @@
     <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_UI_APR" userGroupId="CONFIG_APPROVERS" artifactGroupId="CONFIG_APPROVAL_UI"
             authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_ALL"/>
 
+    <!-- everyone else may open the screens and see (and cancel) their own requests; the screens filter to the requester's own -->
+    <moqui.security.ArtifactGroup artifactGroupId="CONFIG_APPROVAL_OWN_VIEW" description="Change Approval screens and request list (own requests)"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_VIEW" artifactTypeEnumId="AT_XML_SCREEN" nameIsPattern="Y" inheritAuthz="Y"
+            artifactName="component://config-approval/screen/ChangeApproval.*"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_VIEW" artifactTypeEnumId="AT_ENTITY" inheritAuthz="Y"
+            artifactName="co.hotwax.configapproval.ConfigChangeRequest"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_OWN_VIEW" userGroupId="ALL_USERS" artifactGroupId="CONFIG_APPROVAL_OWN_VIEW"
+            authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_VIEW"/>
+    <moqui.security.ArtifactGroup artifactGroupId="CONFIG_APPROVAL_OWN_ACT" description="Cancel own request and read the digest"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="CONFIG_APPROVAL_OWN_ACT" artifactTypeEnumId="AT_SERVICE" inheritAuthz="Y"
+            artifactName="co.hotwax.configapproval.ConfigApprovalServices.cancel#ConfigChangeRequest"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="CONFIG_APPROVAL_OWN_ACT" userGroupId="ALL_USERS" artifactGroupId="CONFIG_APPROVAL_OWN_ACT"
+            authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_ALL"/>
+
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_APPROVAL_REQUEST" description="Config change: approval needed"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"

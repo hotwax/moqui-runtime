@@ -354,7 +354,7 @@ class ConfigApprovalPocTests extends Specification {
         def render = { String loc, String user, Map params ->
             ec.user.internalLoginUser(user)
             ec.context.push(params)
-            try { return ec.screen.makeRender().rootScreen(loc).renderMode("html").render() }
+            try { return ec.screen.makeRender().webappName("webroot").rootScreen(loc).renderMode("html").render() }
             finally { ec.context.pop(); ec.user.logoutUser() }
         }
         when:
@@ -506,5 +506,30 @@ class ConfigApprovalPocTests extends Specification {
         ccrs("poc_j21")[0].statusId == "CcrApplied"
         ccrs("poc_j21")[0].errorText == null
         job("poc_j21").paused == "Y"
+    }
+
+    def "22 screens for non-approvers: a user in no approval group (seed grants only) sees own requests, not other people's"() {
+        given:
+        ec.artifactExecution.disableAuthz()
+        ec.entity.makeValue("moqui.security.UserAccount").setAll([userId: "poc_erin", username: "poc_erin", userFullName: "Erin", currentPassword: "x"]).createOrUpdate()
+        ec.artifactExecution.enableAuthz()
+        String aliceReq = ccrs("poc_j17b")[0].requestId   // pending, requested by alice
+        def render = { String loc, String user, Map params ->
+            ec.user.internalLoginUser(user); ec.context.push(params)
+            try { return ec.screen.makeRender().webappName("webroot").rootScreen(loc).renderMode("html").render() }
+            finally { ec.context.pop(); ec.user.logoutUser() }
+        }
+        when:
+        String erinList = render("component://config-approval/screen/ChangeApproval/FindRequest.xml", "poc_erin", [statusId: ""])
+        String erinDetail = render("component://config-approval/screen/ChangeApproval/Request.xml", "poc_erin", [requestId: aliceReq])
+        String aliceList = render("component://config-approval/screen/ChangeApproval/FindRequest.xml", "poc_alice", [statusId: ""])
+        String aliceDetail = render("component://config-approval/screen/ChangeApproval/Request.xml", "poc_alice", [requestId: aliceReq])
+        String bobList = render("component://config-approval/screen/ChangeApproval/FindRequest.xml", "poc_bob", [statusId: ""])
+        then:
+        !erinList.contains("poc_j17b") && !erinList.contains(aliceReq)
+        erinDetail.contains("not yours to see") && !erinDetail.contains("upgrade")
+        aliceList.contains("poc_j17b")
+        aliceDetail.contains("upgrade") && aliceDetail.contains("CancelForm")
+        bobList.contains("poc_j17b")
     }
 }

@@ -5,13 +5,15 @@
     <transition name="requestDetail"><default-response url="../Request"/></transition>
 
     <!-- pending first: the page opens on what needs a decision unless the user picked another status -->
-    <actions><set field="statusId" from="statusId ?: (ec.web?.parameters?.containsKey('statusId') ? null : 'CcrPending')"/></actions>
+    <actions><set field="isApprover" from="ec.user.isInGroup('CONFIG_APPROVERS')"/><set field="statusId" from="statusId ?: (ec.web?.parameters?.containsKey('statusId') ? null : 'CcrPending')"/></actions>
 
     <widgets>
         <form-list name="RequestList" list="requestList" skip-form="true" show-page-size="true" header-dialog="true">
             <entity-find entity-name="co.hotwax.configapproval.ConfigChangeRequest" list="requestList">
                 <search-form-inputs default-order-by="-requestedDate" skip-fields="statusId"/>
                 <econdition field-name="statusId" from="statusId" ignore-if-empty="true"/>
+                <!-- approvers see all requests; everyone else only their own -->
+                <econdition field-name="requestedByUserId" from="ec.user.userId" ignore="isApprover"/>
             </entity-find>
             <field name="requestId"><default-field title="Request"><link text="${requestId}" url="requestDetail" link-type="anchor"/></default-field></field>
             <field name="summaryText"><default-field title="Change"><display/></default-field></field>
