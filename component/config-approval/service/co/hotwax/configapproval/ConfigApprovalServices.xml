@@ -247,7 +247,13 @@
             def status = ec.entity.find("moqui.basic.StatusItem").condition("statusId", ccr.statusId).one()
             def requester = ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.requestedByUserId).disableAuthz().one()
             def decider = ccr.decidedByUserId ? ec.entity.find("moqui.security.UserAccount").condition("userId", ccr.decidedByUserId).disableAuthz().one() : null
-            String host = System.getProperty("webapp_http_host") ?: ""
+            // emails are sent outside a web request, so the link base must come from config; a relative link breaks in mail clients
+            String host = System.getProperty("config_approval_base_url") ?: ""
+            if (!host) {
+                String h = System.getProperty("webapp_http_host")
+                if (h) host = (System.getProperty("webapp_https_enabled") == "true" ? "https://" : "http://") + h + (System.getProperty("webapp_http_port") && System.getProperty("webapp_https_enabled") != "true" && System.getProperty("webapp_http_port") != "80" ? ":" + System.getProperty("webapp_http_port") : "")
+            }
+            host = host.replaceAll('/+$', "")
             Map bodyParameters = [requestId: requestId, summaryText: ccr.summaryText, statusId: ccr.statusId,
                     statusDescription: status?.description ?: ccr.statusId, reason: ccr.reason, reasonMissing: ccr.reasonMissing,
                     plannedFixDate: ccr.plannedFixDate, expireDate: ccr.expireDate, decisionComment: ccr.decisionComment,

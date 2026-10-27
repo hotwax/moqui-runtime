@@ -59,6 +59,12 @@ if (gatePhase == "hold") {
         converted.set(f, parameters.get(f))
         Object newV = converted.get(f)
         if (norm(f, oldV) == norm(f, newV)) continue
+        // edit forms pre-fill an empty fromDate with "now"; a start that is already in the past on a job with no start does nothing
+        if (f == "fromDate" && oldV == null && newV instanceof java.sql.Timestamp && ((java.sql.Timestamp) newV).time <= System.currentTimeMillis()) {
+            // drop it rather than let it through: written directly it would be flagged as an ungated change
+            parameters.remove(f)
+            continue
+        }
         boolean secret = "Y".equals(guarded.get(f).optionIndicator)
         diff.add([field: f, oldValue: secret ? "(changed)" : (oldV == null ? null : oldV.toString()),
                   newValue: secret ? "(changed)" : (newV == null ? null : newV.toString())])

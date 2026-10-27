@@ -656,4 +656,25 @@ class ConfigApprovalPocTests extends Specification {
         job("poc_j26").cronExpression == "0 0 3 * * ?"
         job("poc_j26").repeatCount == 5
     }
+
+    def "27 an edit form that pre-fills an empty fromDate with now does not show it as a change, a future start still is held"() {
+        given: makeJob("poc_j27")
+        when:
+        ec.message.clearAll()
+        callUpdate("alice", [jobName: "poc_j27", paused: "Y", fromDate: new Timestamp(System.currentTimeMillis() - 1000L), _changeReason: "maintenance"])
+        def reqs = ccrs("poc_j27")
+        then:
+        reqs.size() == 1
+        reqs[0].diffJson.contains('"paused"')
+        !reqs[0].diffJson.contains("fromDate")
+        job("poc_j27").fromDate == null
+
+        when:
+        callUpdate("alice", [jobName: "poc_j27", fromDate: new Timestamp(System.currentTimeMillis() + 7 * 86400000L), _changeReason: "start next week"])
+        def reqs2 = ccrs("poc_j27")
+        then:
+        reqs2.size() == 2
+        reqs2[1].diffJson.contains("fromDate")
+        job("poc_j27").fromDate == null
+    }
 }
