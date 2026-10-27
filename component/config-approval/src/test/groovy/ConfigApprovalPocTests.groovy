@@ -921,31 +921,42 @@ class ConfigApprovalPocTests extends Specification {
         fresh().reason == "needed for the nightly load"
     }
 
-    def "34 new change request screen service: held with its reason, break-glass applies at once, reason is required, unknown field refused"() {
+    def "34 new change request service (generic): update held with its reason, create and delete held, break-glass applies at once, bad input refused"() {
         given: makeJob("poc_j34")
         def job = { ec.entity.find("moqui.service.job.ServiceJob").condition("jobName", "poc_j34").useCache(false).disableAuthz().one() }
+        String JOB = "moqui.service.job.ServiceJob", PARAM = "moqui.service.job.ServiceJobParameter"
         def submit = { Map m -> ec.message.clearAll()
-            as_("alice") { ec.service.sync().name(SVC + "submit#ChangeRequest").parameters([jobName: "poc_j34"] + m).call() }
-            String e = ec.message.errorsString; ec.message.clearAll(); return e }
+            as_("alice") { ec.service.sync().name(SVC + "submit#ChangeRequest").parameters(m).call() }
+            String e = ec.message.errorsString; String msg = ec.message.messagesString; ec.message.clearAll(); return [e, msg] }
+        def key = '{"jobName":"poc_j34"}'
         when:
-        String held = submit([fieldName: "paused", newValue: "Y", reason: "maintenance window"])
-        def reqs = ccrsFor("moqui.service.job.ServiceJob", [jobName: "poc_j34"])
+        def held = submit([entityName: JOB, changeType: "Update", recordKey: key, fieldName: "paused", newValue: "Y", reason: "maintenance window"])
+        def reqs = ccrsFor(JOB, [jobName: "poc_j34"])
         then:
-        held == ""
+        held[0] == "" && held[1].contains("Request sent")
         job().paused != "Y"
         reqs.size() == 1 && reqs[0].reason == "maintenance window" && reqs[0].statusId == "CcrPending"
 
-        when:
-        String noReason = submit([fieldName: "cronExpression", newValue: "0 0 3 * * ?", reason: "  "])
-        String badField = submit([fieldName: "jobName", newValue: "x", reason: "r"])
+        when: "add and delete of a record of another entity use the same form"
+        def added = submit([entityName: PARAM, changeType: "Create", newRecord: "jobName=poc_j34\nparameterName=batchSize\nparameterValue=4", reason: "need batches"])
+        def pReqs = ccrsFor(PARAM, [jobName: "poc_j34", parameterName: "batchSize"])
         then:
-        noReason != "" && badField.contains("cannot be changed")
+        added[0] == "" && added[1].contains("Request sent")
+        pReqs.size() == 1 && pReqs[0].changeTypeEnumId == "CctCreate"
+
+        when: "bad input"
+        def noReason = submit([entityName: JOB, changeType: "Update", recordKey: key, fieldName: "cronExpression", newValue: "0 0 3 * * ?", reason: "  "])
+        def badField = submit([entityName: JOB, changeType: "Update", recordKey: key, fieldName: "jobName", newValue: "x", reason: "r"])
+        def badEntity = submit([entityName: "moqui.basic.Enumeration", changeType: "Delete", recordKey: '{"enumId":"CctUpdate"}', reason: "r"])
+        def noKey = submit([entityName: JOB, changeType: "Update", fieldName: "paused", newValue: "Y", reason: "r"])
+        then:
+        noReason[0] != "" && badField[0].contains("not a guarded field") && badEntity[0].contains("no guarded fields") && noKey[0].contains("Pick the record")
 
         when:
-        String bg = submit([fieldName: "transactionTimeout", newValue: "600", reason: "prod fire", breakGlass: "Y"])
+        def bg = submit([entityName: JOB, changeType: "Update", recordKey: key, fieldName: "transactionTimeout", newValue: "600", reason: "prod fire", breakGlass: "Y"])
         then:
-        bg == ""
+        bg[0] == ""
         job().transactionTimeout == 600
-        ccrsFor("moqui.service.job.ServiceJob", [jobName: "poc_j34"]).any { it.changeSourceEnumId == "CcsBreakGlass" }
+        ccrsFor(JOB, [jobName: "poc_j34"]).any { it.changeSourceEnumId == "CcsBreakGlass" }
     }
 }

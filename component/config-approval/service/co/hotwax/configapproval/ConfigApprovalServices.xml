@@ -137,27 +137,63 @@
     </service>
 
     <service verb="submit" noun="ChangeRequest" authenticate="true">
-        <description>The "New change request" screen: changes one guarded field of a job with a mandatory reason, through the normal
-            update service so the gate holds it (or, with the break-glass box ticked, lets it through and records it).</description>
+        <description>The "New change request" screen, for any entity that has guarded fields in Setup: changes a guarded field,
+            or adds or deletes a record, with a mandatory reason, through the entity's normal create/update/delete service so
+            the gate holds it (or, with break-glass, lets it through and records it).</description>
         <in-parameters>
-            <parameter name="jobName" required="true"/>
-            <parameter name="fieldName" required="true"><description>A guarded ServiceJob field.</description></parameter>
-            <parameter name="newValue" required="true"/>
+            <parameter name="entityName" required="true"/>
+            <parameter name="changeType" required="true"><description>Update, Create or Delete</description></parameter>
+            <parameter name="recordKey"><description>JSON of the primary key (Update, Delete)</description></parameter>
+            <parameter name="fieldName"><description>A guarded field (Update)</description></parameter>
+            <parameter name="newValue"/>
+            <parameter name="newRecord"><description>One field=value per line (Create)</description></parameter>
             <parameter name="reason" required="true"/>
             <parameter name="breakGlass"/>
             <parameter name="plannedFixDate" type="Timestamp"/>
         </in-parameters>
-        <actions>
-            <if condition="!(fieldName in ['paused', 'cronExpression', 'fromDate', 'thruDate', 'repeatCount', 'transactionTimeout'])">
-                <return error="true" message="${fieldName} cannot be changed from this screen."/></if>
-            <if condition="!reason?.trim()"><return error="true" message="A reason is required."/></if>
-            <set field="changeMap" from="[jobName: jobName, (fieldName): newValue, _changeReason: reason.trim()]"/>
-            <if condition="plannedFixDate"><set field="changeMap._plannedFixDate" from="plannedFixDate"/></if>
-            <if condition="breakGlass == 'Y'"><set field="changeMap._breakGlass" value="Y"/></if>
-            <service-call name="update#moqui.service.job.ServiceJob" in-map="changeMap"/>
-            <if condition="!ec.message.hasError() &amp;&amp; breakGlass != 'Y' &amp;&amp; !ec.message.messages">
-                <message>Request sent for approval. You will get an email when it is decided.</message></if>
-        </actions>
+        <actions><script><![CDATA[
+            import groovy.json.JsonSlurper
+            if (!reason?.trim()) { ec.message.addError("A reason is required."); return }
+            // only entities that have an active guarded field in Setup may be changed from here
+            def guards = ec.entity.find("moqui.basic.Enumeration").condition("enumTypeId", "ConfigApprovalField")
+                    .condition("enumCode", org.moqui.entity.EntityCondition.LIKE, entityName + ".%").disableAuthz().useCache(false).list()
+                    .findAll { it.optionValue != "N" }
+            if (!guards) { ec.message.addError("${entityName} has no guarded fields, so there is nothing to request here."); return }
+            if (!ec.entity.isEntityDefined(entityName)) { ec.message.addError("Unknown entity ${entityName}."); return }
+            def ed = ec.entity.getEntityDefinition(entityName)
+            String verb = [Update: "update", Create: "create", Delete: "delete"].get(changeType)
+            if (!verb) { ec.message.addError("Change type must be Update, Create or Delete."); return }
+            String svcName = verb + "#" + entityName
+            if (!ec.service.isServiceDefined(svcName)) { ec.message.addError("No ${verb} service for ${entityName}."); return }
+            Map changeMap = [:]
+            if (verb != "create") {
+                Map pk = recordKey ? (Map) new JsonSlurper().parseText(recordKey) : [:]
+                if (!pk.keySet().containsAll(ed.getPkFieldNames())) { ec.message.addError("Pick the record to change."); return }
+                changeMap.putAll(pk)
+            }
+            if (verb == "update") {
+                if (!guards.any { it.enumCode == entityName + "." + fieldName }) { ec.message.addError("${fieldName} is not a guarded field of ${entityName}."); return }
+                changeMap.put(fieldName, newValue)
+            } else if (verb == "create") {
+                (newRecord ?: "").readLines().each { String line ->
+                    int i = line.indexOf("=")
+                    if (i > 0) changeMap.put(line.substring(0, i).trim(), line.substring(i + 1).trim())
+                }
+                def bad = changeMap.keySet().findAll { !ed.isField(it) }
+                if (bad) { ec.message.addError("Unknown field(s) for ${entityName}: ${bad.join(', ')}."); return }
+                if (!changeMap.keySet().containsAll(ed.getPkFieldNames())) { ec.message.addError("Give every key field (${ed.getPkFieldNames().join(', ')}) as field=value lines."); return }
+            }
+            changeMap._changeReason = reason.trim()
+            if (plannedFixDate) changeMap._plannedFixDate = plannedFixDate
+            if (breakGlass == "Y") changeMap._breakGlass = "Y"
+            ec.service.sync().name(svcName).parameters(changeMap).call()
+            // a held create/delete stops the service with a "request sent" error (the request itself is already saved): show it as a message
+            String sent = ec.message.errorsString
+            if (sent.contains("Request sent for approval")) { ec.message.clearErrors(); ec.message.addMessage(sent.trim()) }
+            // a held update succeeds quietly
+            if (!ec.message.hasError() && breakGlass != "Y" && !ec.message.messages)
+                ec.message.addMessage("Request sent for approval. You will get an email when it is decided.")
+        ]]></script></actions>
     </service>
 
     <service verb="apply" noun="ConfigChangeRequest" authenticate="true" allow-remote="false" transaction-timeout="300">
