@@ -137,7 +137,8 @@
             Map original = ccr.originalJson ? (Map) new JsonSlurper().parseText(ccr.originalJson) : [:]
             Map pk = (Map) new JsonSlurper().parseText(ccr.pkJson)
             def current = ec.entity.find(ccr.entityName).condition(pk).useCache(false).disableAuthz().one()
-            if (current == null) failure = "The record no longer exists."
+            if (ccr.changeTypeEnumId == "CctCreate") { if (current != null) failure = "The record already exists." }
+            else if (current == null) failure = "The record no longer exists."
             else for (String f in original.keySet()) {
                 String now = current.get(f) == null ? null : current.get(f).toString()
                 String was = original.get(f)

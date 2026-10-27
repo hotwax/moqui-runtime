@@ -88,6 +88,44 @@
         </actions>
     </seca>
 
+    <!-- Adding or deleting a record cannot be done by stripping fields: the request is saved in its own transaction and the
+         service is stopped with a "request sent" message (see ApprovalGate.groovy) -->
+    <seca id="CcrHold_SjParamCreate" service="create#moqui.service.job.ServiceJobParameter" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="create#moqui.service.job.ServiceJobParameter"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SjParamDelete" service="delete#moqui.service.job.ServiceJobParameter" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="delete#moqui.service.job.ServiceJobParameter"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SmrCreate" service="create#moqui.service.message.SystemMessageRemote" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="create#moqui.service.message.SystemMessageRemote"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SmrDelete" service="delete#moqui.service.message.SystemMessageRemote" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="delete#moqui.service.message.SystemMessageRemote"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+    <seca id="CcrHold_SjDelete" service="delete#moqui.service.job.ServiceJob" when="pre-validate">
+        <actions>
+            <set field="gatePhase" value="hold"/>
+            <set field="gateServiceName" value="delete#moqui.service.job.ServiceJob"/>
+            <script location="component://config-approval/script/ApprovalGate.groovy"/>
+        </actions>
+    </seca>
+
     <!-- The request is created inside the caller's transaction (nested call), where post-commit fires BEFORE the real
          commit. tx-commit registers on the transaction itself and runs after it commits, in its own thread and
          transaction, so the email sees the committed row and a mail failure can never roll back the maker's edit. -->

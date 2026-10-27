@@ -765,4 +765,47 @@ class ConfigApprovalPocTests extends Specification {
         page.contains("Guard this field")
         page.contains("poc_bob")
     }
+
+    def "30 adding or deleting a job parameter is held: request saved, nothing changes, maker is told, approval then adds or deletes it"() {
+        given: makeJob("poc_j30")
+        Map pk = [jobName: "poc_j30", parameterName: "batchSize"]
+        def param = { ec.entity.find("moqui.service.job.ServiceJobParameter").condition(pk).useCache(false).disableAuthz().one() }
+        when:
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("create#moqui.service.job.ServiceJobParameter").parameters(pk + [parameterValue: "100", _changeReason: "new batch size"]).call() }
+        def err1 = ec.message.errorsString
+        ec.message.clearAll()
+        def reqs = ccrsFor("moqui.service.job.ServiceJobParameter", pk)
+        then:
+        err1.contains("Request sent for approval")
+        param() == null
+        reqs.size() == 1
+        reqs[0].changeTypeEnumId == "CctCreate"
+        reqs[0].statusId == "CcrPending"
+        reqs[0].reason == "new batch size"
+        reqs[0].diffJson.contains("100")
+
+        when:
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs[0].requestId]).call() }
+        then:
+        ec.message.errors.isEmpty()
+        param()?.parameterValue == "100"
+
+        when: "delete is held the same way"
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name("delete#moqui.service.job.ServiceJobParameter").parameters(pk + [_changeReason: "not needed"]).call() }
+        def err2 = ec.message.errorsString
+        ec.message.clearAll()
+        def reqs2 = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeTypeEnumId == "CctDelete" }
+        then:
+        err2.contains("Request sent for approval")
+        param() != null
+        reqs2.size() == 1
+
+        when:
+        as_("dave") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: reqs2[0].requestId]).call() }
+        then:
+        ec.message.errors.isEmpty()
+        param() == null
+    }
 }

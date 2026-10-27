@@ -41,7 +41,12 @@ if (gatePhase == "hold") {
     for (String pk in pkNames) pkMap.put(pk, parameters.get(pk))
     if (pkMap.values().any { it == null }) return
     EntityValue current = ec.entity.find(entityName).condition(pkMap).useCache(false).disableAuthz().one()
-    if (current == null) return   // create path is not held in the POC
+    String verb = gateServiceName.substring(0, gateServiceName.indexOf('#'))
+    verb = verb.substring(verb.lastIndexOf('.') + 1)
+    boolean isCreate = verb == "create" || (verb == "store" && current == null)
+    boolean isDelete = verb == "delete"
+    if (isCreate && current != null) return   // the service will refuse a duplicate itself
+    if (current == null && !isCreate) return   // update or delete of a record that is not there: the service reports it
 
     // normalize so "no change" is not reported: null/"" equal, and a null paused means active (same as N)
     Closure norm = { String field, Object v ->
@@ -53,7 +58,7 @@ if (gatePhase == "hold") {
     Map held = [:]
     for (String f in guarded.keySet()) {
         if (!parameters.containsKey(f)) continue
-        Object oldV = current.get(f)
+        Object oldV = current?.get(f)
         // convert the incoming value to the field's type the same way the entity layer will
         EntityValue converted = ec.entity.makeValue(entityName)
         converted.set(f, parameters.get(f))
@@ -75,6 +80,46 @@ if (gatePhase == "hold") {
     Object reasonParam = parameters.remove("_changeReason")
     Object plannedFixParam = parameters.remove("_plannedFixDate")
     Object breakGlassParam = parameters.remove("_breakGlass")
+    if (isCreate || isDelete) {
+        // a create or delete has no field to strip, and a pre-validate rule can only stop a service by adding an error. So the
+        // request is saved in its own transaction (it survives the roll back) and the service is stopped with a message that
+        // says the request was sent. Break-glass does not apply here.
+        if (shared.get("ccr.held") == System.identityHashCode(parameters)) return
+        def ed = ec.entity.getEntityDefinition(entityName)
+        Map createHeld = [:]
+        List createDiff = []
+        Map deleteOriginal = [:]
+        if (isCreate) {
+            for (String f in new ArrayList(parameters.keySet())) {
+                if (pkNames.contains(f) || !ed.isField(f) || parameters.get(f) == null || "".equals(parameters.get(f))) continue
+                createHeld.put(f, parameters.get(f))
+                boolean secretF = guarded.containsKey(f) && "Y".equals(guarded.get(f).optionIndicator)
+                createDiff.add([field: f, oldValue: null, newValue: secretF ? "(changed)" : parameters.get(f).toString()])
+            }
+        } else {
+            for (String f in guarded.keySet()) {
+                Object v = current.get(f)
+                if (v == null) continue
+                boolean secretF = "Y".equals(guarded.get(f).optionIndicator)
+                createDiff.add([field: f, oldValue: secretF ? "(changed)" : v.toString(), newValue: "(deleted)"])
+                deleteOriginal.put(f, v.toString())
+            }
+            if (!createDiff) createDiff.add([field: "(record)", oldValue: "exists", newValue: "(deleted)"])
+        }
+        String shortName = entityName.substring(entityName.lastIndexOf('.') + 1)
+        String summaryC = (isCreate ? "Add " : "Delete ") + shortName + " " + pkMap.values().join("/")
+        Map outC = ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.create#ConfigChangeRequest")
+                .parameters([serviceName: gateServiceName, entityName: entityName, pkJson: JsonOutput.toJson(pkMap),
+                        changeSourceEnumId: "CcsApproval", changeTypeEnumId: isCreate ? "CctCreate" : "CctDelete",
+                        parametersJson: JsonOutput.toJson(pkMap + createHeld), originalJson: JsonOutput.toJson(deleteOriginal),
+                        diffJson: JsonOutput.toJson(createDiff), summaryText: summaryC, reason: reasonParam, plannedFixDate: plannedFixParam,
+                        requestChannel: ec.web != null ? "rest" : "service"])
+                .requireNewTransaction(true).disableAuthz().call()
+        shared.put("ccr.held", System.identityHashCode(parameters))
+        ec.web?.response?.addHeader("X-Config-Change-Request", outC.requestId as String)
+        ec.message.addError("Request sent for approval (CR ${outC.requestId}). Nothing was ${isCreate ? 'added' : 'deleted'} yet; you will get an email when it is decided.".toString())
+        return
+    }
     if (!diff) return
     // break-glass: explicit (_breakGlass=Y), only for CONFIG_BREAK_GLASS members, and only with a reason. Anything else is held as usual.
     boolean breakGlass = "Y".equals(breakGlassParam) && ec.user.isInGroup("CONFIG_BREAK_GLASS") && reasonParam
