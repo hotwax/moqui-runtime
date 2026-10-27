@@ -108,9 +108,23 @@ if (gatePhase == "hold") {
         }
         String shortName = entityName.substring(entityName.lastIndexOf('.') + 1)
         String summaryC = (isCreate ? "Add " : "Delete ") + shortName + " " + pkMap.values().join("/")
+        // the maker gets no visible answer in some screens and clicks again: the same ask is not saved twice
+        String changeTypeC = isCreate ? "CctCreate" : "CctDelete"
+        String pkJsonC = JsonOutput.toJson(pkMap)
+        EntityValue already = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("entityName", entityName)
+                .condition("pkJson", pkJsonC).condition("changeTypeEnumId", changeTypeC).condition("statusId", "CcrPending")
+                .useCache(false).disableAuthz().list().find { true }
+        String requestIdC
+        if (already != null) {
+            requestIdC = already.requestId
+            shared.put("ccr.held", System.identityHashCode(parameters))
+            ec.web?.response?.addHeader("X-Config-Change-Request", requestIdC)
+            ec.message.addError("A request for this is already waiting for approval (CR ${requestIdC}). Nothing was ${isCreate ? 'added' : 'deleted'} yet.".toString())
+            return
+        }
         Map outC = ec.service.sync().name("co.hotwax.configapproval.ConfigApprovalServices.create#ConfigChangeRequest")
-                .parameters([serviceName: gateServiceName, entityName: entityName, pkJson: JsonOutput.toJson(pkMap),
-                        changeSourceEnumId: "CcsApproval", changeTypeEnumId: isCreate ? "CctCreate" : "CctDelete",
+                .parameters([serviceName: gateServiceName, entityName: entityName, pkJson: pkJsonC,
+                        changeSourceEnumId: "CcsApproval", changeTypeEnumId: changeTypeC,
                         parametersJson: JsonOutput.toJson(pkMap + createHeld), originalJson: JsonOutput.toJson(deleteOriginal),
                         diffJson: JsonOutput.toJson(createDiff), summaryText: summaryC, reason: reasonParam, plannedFixDate: plannedFixParam,
                         requestChannel: ec.web != null ? "rest" : "service"])

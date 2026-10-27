@@ -811,4 +811,38 @@ class ConfigApprovalPocTests extends Specification {
         ec.message.errors.isEmpty()
         param() == null
     }
+
+    def "31 asking again for the same create or delete while one is pending does not save a second request"() {
+        given: makeJob("poc_j31")
+        Map pk = [jobName: "poc_j31", parameterName: "batchSize"]
+        def asks = { String verb ->
+            ec.message.clearAll()
+            as_("alice") { ec.service.sync().name(verb + "#moqui.service.job.ServiceJobParameter").parameters(pk + (verb == "create" ? [parameterValue: "7"] : [:]) + [_changeReason: "again"]).call() }
+            String e = ec.message.errorsString
+            ec.message.clearAll()
+            return e
+        }
+        when:
+        def first = asks("create")
+        def second = asks("create")
+        def third = asks("create")
+        def creates = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeTypeEnumId == "CctCreate" }
+        then:
+        first.contains("Request sent for approval")
+        second.contains("already waiting")
+        third.contains("already waiting")
+        creates.size() == 1
+        second.contains("CR " + creates[0].requestId)
+
+        when: "a different change type on the same record is its own request, and once decided a new ask is allowed again"
+        as_("bob") { ec.service.sync().name(SVC + "approve#ConfigChangeRequest").parameters([requestId: creates[0].requestId]).call() }
+        ec.message.clearAll()
+        def del1 = asks("delete")
+        def del2 = asks("delete")
+        def deletes = ccrsFor("moqui.service.job.ServiceJobParameter", pk).findAll { it.changeTypeEnumId == "CctDelete" }
+        then:
+        del1.contains("Request sent for approval")
+        del2.contains("already waiting")
+        deletes.size() == 1
+    }
 }
