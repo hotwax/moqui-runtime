@@ -430,7 +430,10 @@
             ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumTypeId: "ConfigApprovalField",
                     enumId: ec.entity.sequencedIdPrimary("moqui.basic.Enumeration", null, null).with { "CafX" + it }, enumCode: code,
                     description: description ?: code, optionIndicator: secret == "Y" ? "Y" : null]).create()
-            ec.message.addMessage("${code} is now guarded. Note: changes to existing records of ${entityName} are held; creating or deleting records is not.".toString())
+            String secaText = ec.resource.getLocationReference("component://config-approval/service/config-approval.secas.xml").getText() ?: ""
+            boolean hooked = secaText.contains('service="update#' + entityName + '"')
+            ec.message.addMessage("${code} is now in the guarded list. Note: changes to existing records of ${entityName} are held; creating or deleting records is not.".toString())
+            if (!hooked) ec.message.addMessage("Developer step needed: ${entityName} has no approval hooks yet, so ${code} is NOT actually gated. Add its SECAs to component://config-approval/service/config-approval.secas.xml (copy the ServiceJobParameter ones), see README, Guarding.".toString())
         ]]></script></actions>
     </service>
     <service verb="sync" noun="OfbizApproverGroup" authenticate="false">

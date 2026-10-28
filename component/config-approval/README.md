@@ -24,6 +24,10 @@ is applied when one of them approves. No change to the framework, runtime or oth
   SystemMessageRemote (update/store, plus create/delete) and the maarg-util job wrapper. To gate another entity, add its
   SECAs there (copy the ServiceJobParameter ones: hold, record, and for create/delete the HeldMsg rule), add the field codes in
   Setup, and add authz for the screens' users.
+- Setup tells you when code is still missing. The Guarded fields table has a "Hooks in code" column: **Yes** means the entity has
+  update/store SECAs in `config-approval.secas.xml`; **NO: developer must add SECAs** means the field is only listed, not gated.
+  Adding a field of an unhooked entity also shows a "Developer step needed" message, and a hint under the table points here.
+  The check only looks for `update#`/`store#` SECAs of the entity, so it says nothing about whether create/delete are hooked.
 
 ## Use
 - Makers: normal screens/APIs. A held change returns a "request sent" message; **New request** (Change Approval menu) takes a
@@ -32,4 +36,4 @@ is applied when one of them approves. No change to the framework, runtime or oth
 - Digest/read tools for the AI summary: `config-approval.mcp.xml` (needs moqui-ai).
 
 ## Tests
-`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 41 tests) runs against an isolated H2 runtime.
+`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 43 tests) runs against an isolated H2 runtime.

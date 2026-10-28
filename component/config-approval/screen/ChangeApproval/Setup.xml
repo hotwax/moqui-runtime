@@ -20,6 +20,10 @@
             List<String> noMail = members.findAll { !ec.entity.find("moqui.security.UserAccount").condition("userId", it.userId).disableAuthz().one()?.emailAddress }.collect { it.userId as String }
             if (noMail) warns << "These approvers have no email address and will not be told about new requests: ${noMail.join(', ')}."
             approverWarning = warns.join(" ")
+            // which entities have approval hooks (SECAs) in code: a field only listed in Setup is not gated until its entity is hooked
+            String secaText = ec.resource.getLocationReference("component://config-approval/service/config-approval.secas.xml").getText() ?: ""
+            hookedEntities = new HashSet<String>()
+            (secaText =~ /service="(?:update|store)#([\w.]+)"/).each { m -> hookedEntities.add(m[1] as String) }
         ]]></script>
     </actions>
 
@@ -70,11 +74,13 @@
                     <field name="enumCode"><default-field title="Entity.field"><display/></default-field></field>
                     <field name="description"><default-field title="What it controls"><display/></default-field></field>
                     <field name="optionIndicator"><default-field title="Secret"><display text="${optionIndicator == 'Y' ? 'Yes' : ''}"/></default-field></field>
+                    <field name="hooks"><default-field title="Hooks in code"><display text="${hookedEntities.contains(enumCode.substring(0, enumCode.lastIndexOf('.'))) ? 'Yes' : 'NO: developer must add SECAs'}"/></default-field></field>
                     <field name="optionValue"><default-field title="Status"><display text="${optionValue == 'N' ? 'Not guarded' : 'Guarded'}"/></default-field></field>
                     <field name="toggle"><default-field title=" ">
                         <link url="setGuarded" text="${optionValue == 'N' ? 'Guard again' : 'Stop guarding'}" parameter-map="[enumId:enumId, active:(optionValue == 'N' ? 'Y' : 'N')]" condition="isAdmin"/>
                     </default-field></field>
                 </form-list>
+                <label text="Developer hint: this list only says which fields count as guarded. Whether a change is actually held is decided in code, by SECAs in component://config-approval/service/config-approval.secas.xml. To guard a field of a new entity, a developer must first add the hold and record SECAs for that entity (copy the ServiceJobParameter ones; for create/delete also the HeldMsg rule), then add the field here. A row marked NO under Hooks in code is listed but not gated yet. See the README, section Guarding." type="p" style="text-muted"/>
                 <section name="AddGuarded" condition="isAdmin"><widgets>
                     <form-single name="AddGuardedForm" transition="addGuarded">
                         <field name="entityName"><default-field title="Entity"><text-line size="45" default-value="moqui.service.job.ServiceJob"/></default-field></field>

@@ -1182,4 +1182,25 @@ class ConfigApprovalPocTests extends Specification {
         cleanup:
         ec.message.clearAll()
     }
+    def "43 Setup tells the admin when a guarded field's entity has no approval hooks in code"() {
+        when: "an entity with SECAs vs one without"
+        ec.message.clearAll()
+        as_("root") { ec.service.sync().name(SVC + "add#GuardedField").parameters([entityName: "moqui.service.job.ServiceJob", fieldName: "description"]).call() }
+        String hookedMsgs = ec.message.messages.join(" | ")
+        ec.message.clearAll()
+        as_("root") { ec.service.sync().name(SVC + "add#GuardedField").parameters([entityName: "moqui.security.UserGroup", fieldName: "description"]).call() }
+        String unhookedMsgs = ec.message.messages.join(" | ")
+        ec.message.clearAll()
+        String page
+        ec.user.internalLoginUser("poc_root")
+        try { page = ec.screen.makeRender().webappName("webroot").rootScreen("component://config-approval/screen/ChangeApproval/Setup.xml").renderMode("html").render() }
+        finally { ec.user.logoutUser() }
+        then:
+        !hookedMsgs.contains("Developer step needed")
+        unhookedMsgs.contains("Developer step needed")
+        unhookedMsgs.contains("config-approval.secas.xml")
+        page.contains("Developer hint")
+        page.contains("NO: developer must add SECAs")
+        page.contains("Yes")
+    }
 }
