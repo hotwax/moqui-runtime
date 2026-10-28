@@ -21,6 +21,65 @@
     <default-property name="entity_ds_password" value="moqui"/>
     -->
 
+    <default-property name="entity_ds_host" value="127.0.0.1"/>
+    <default-property name="entity_ds_db_conf" value="mysql"/>
+    <default-property name="entity_ds_user" value="root"/>
+    <default-property name="entity_ds_password" value="Puru@1234"/>
+    <default-property name="entity_ds_database" value="devhc"/>
+    <default-property name="entity_add_missing_runtime" value="true"/>
+
+<!--    <default-property name="entity_ds_db_conf" value="mysql8"/>-->
+<!--    <default-property name="entity_ds_host" value="172.20.20.144"/>-->
+<!--    <default-property name="entity_ds_user" value="puru"/>-->
+<!--    <default-property name="entity_ds_password" value="Puru@1234"/>-->
+<!--    <default-property name="entity_ds_database" value="devhc"/>-->
+
+<!--    <default-property name="entity_ds_c1_db_conf" value="mysql8"/>-->
+<!--    <default-property name="entity_ds_c1_user" value="root"/>-->
+<!--    <default-property name="entity_ds_c1_password" value="Puru@1234" is-secret="true"/>-->
+<!--    <default-property name="entity_ds_c1_database" value="qa"/>-->
+<!--    <default-property name="entity_ds_c1_disabled" value="false"/>-->
+
+    <default-property name="bi_entity_ds_db_conf" value="mysql8"/>
+    <default-property name="bi_entity_ds_host" value="127.0.0.1"/>
+    <default-property name="bi_entity_ds_database" value="moqui_bi"/>
+    <default-property name="bi_entity_ds_user" value="root"/>
+    <default-property name="bi_entity_ds_password" value="Puru@1234"/>
+
+    <default-property name="default_time_zone" value="America/Los_Angeles"/>
+    <default-property name="database_time_zone" value="America/Los_Angeles"/>
+    <default-property name="default_locale" value="en_US"/>
+
+<!--    <default-property name="bi_entity_ds_host" value="54.196.173.118"/>-->
+<!--    <default-property name="bi_entity_ds_database" value="test"/>-->
+<!--    <default-property name="bi_entity_ds_user" value="omsbi"/>-->
+<!--    <default-property name="bi_entity_ds_password" value="Ht5#ndbomsbi"/>-->
+
+<!--    <default-property name="ofbiz_entity_ds_host" value="172.20.20.40"/>-->
+<!--    <default-property name="ofbiz_entity_ds_user" value="sm-uat-readonly"/>-->
+<!--    <default-property name="ofbiz_entity_ds_password" value="Ht5#nsmuatread"/>-->
+<!--    <default-property name="ofbiz_entity_ds_database" value="smuat"/>-->
+
+    <default-property name="ofbiz_entity_ds_host" value="127.0.0.1"/>
+    <default-property name="ofbiz_entity_ds_user" value="root"/>
+    <default-property name="ofbiz_entity_ds_password" value="Puru@1234"/>
+    <default-property name="ofbiz_entity_ds_database" value="ofbiz"/>
+
+    <default-property name="ofbiz.instance.name" value="devhc1"/>
+    <default-property name="ofbiz.instance.url" value="https://localhost:8443"/>
+
+    <default-property name="elasticsearch_url" value="https://localhost:9200"/>
+    <default-property name="elasticsearch_user" value="admin"/>
+    <default-property name="elasticsearch_password" value="AdminPass!9cf7005ecbe21" is-secret="true"/>
+
+    <!--    <default-property name="ofbiz_entity_ds_host" value="172.20.20.40"/>-->
+    <!--    <default-property name="ofbiz_entity_ds_user" value="devhc-readonly-user"/>-->
+    <!--    <default-property name="ofbiz_entity_ds_password" value="Ht5#ndevhcreadonly"/>-->
+    <!--    <default-property name="ofbiz_entity_ds_database" value="devhc"/>-->
+
+    <default-property name="scheduled.mdm.check.time" value="20"/>
+    <default-property name="mdm.reschedule.delay" value="5"/>
+
     <cache-list warm-on-start="false">
         <!-- Development Mode - expires artifact cache entries; don't use these for production, load testing, etc -->
         <cache name="entity.definition" expire-time-idle="30"/>
@@ -74,6 +133,7 @@
         <artifact-execution type="AT_XML_SCREEN" tarpit-enabled="false"/>
         <artifact-execution type="AT_XML_SCREEN_TRANS" tarpit-enabled="false"/>
         <artifact-execution type="AT_SERVICE" tarpit-enabled="false"/>
+        <artifact-execution type="AT_REST_PATH" authz-enabled="true" tarpit-enabled="true"/>
     </artifact-execution-facade>
 
     <screen-facade boundary-comments="true">
@@ -83,7 +143,13 @@
     </screen-facade>
 
     <entity-facade query-stats="true">
-        <!-- add datasource elements here to configure databases -->
+        <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}">
+            <inline-jdbc pool-maxsize="140" xa-ds-class="com.mysql.cj.jdbc.MysqlXADataSource">
+                <xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useSSL="false" allowPublicKeyRetrieval="true"
+                               serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+                               databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/>
+            </inline-jdbc>
+        </datasource>
     </entity-facade>
 
     <repository-list>

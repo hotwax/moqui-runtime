@@ -53,36 +53,7 @@
         <link url="back" text="Back to requests" link-type="anchor"/>
         <section name="MainSection" condition="ccr">
             <widgets>
-                <label text="${ccr.summaryText}" type="h4"/>
-                <container-box>
-                    <box-header title="Request ${requestId}"/>
-                    <box-body>
-                        <form-single name="RequestInfo" map="ccr">
-                            <field name="statusId"><default-field title="Status"><display text="${statusItem?.description ?: ccr.statusId}"/></default-field></field>
-                            <field name="requestedByUserId"><default-field title="Requested by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}"/></default-field></field>
-                            <field name="requestedDate"><default-field title="Requested"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
-                            <field name="reason"><default-field><display also-hidden="false"/></default-field></field>
-                            <field name="plannedFixDate"><default-field title="Planned fix"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
-                            <field name="expireDate"><default-field title="Expires"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
-                            <field name="decidedByUserId"><default-field title="Decided by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}" also-hidden="false"/></default-field></field>
-                            <field name="decisionComment"><default-field title="Decision comment"><display/></default-field></field>
-                            <field name="errorText"><default-field title="Apply error"><display/></default-field></field>
-                        </form-single>
-                    </box-body>
-                </container-box>
-
-                <container-box>
-                    <box-header title="What changes"/>
-                    <box-body>
-                        <form-list name="DiffList" list="diffList" skip-form="true">
-                            <field name="field"><default-field title="Field"><display/></default-field></field>
-                            <field name="oldValue"><default-field title="Current"><display/></default-field></field>
-                            <field name="newValue"><default-field title="Requested"><display/></default-field></field>
-                        </form-list>
-                    </box-body>
-                </container-box>
-
-                <container style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:12px">
+                <container style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:8px 0 16px">
                 <section name="ReasonSection" condition="isRequester &amp;&amp; (isPending || ccr.reasonMissing == 'Y')">
                     <widgets>
                         <container-dialog id="ReasonDialog" button-text="${ccr.reason ? 'Edit reason' : 'Add reason'}">
@@ -150,6 +121,35 @@
                     </widgets>
                 </section>
                 </container>
+                <label text="${ccr.summaryText}" type="h4"/>
+                <container-box>
+                    <box-header title="Request ${requestId}"/>
+                    <box-body>
+                        <form-single name="RequestInfo" map="ccr">
+                            <field name="statusId"><default-field title="Status"><display text="${statusItem?.description ?: ccr.statusId}"/></default-field></field>
+                            <field name="requestedByUserId"><default-field title="Requested by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}"/></default-field></field>
+                            <field name="requestedDate"><default-field title="Requested"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+                            <field name="reason"><default-field><display also-hidden="false"/></default-field></field>
+                            <field name="plannedFixDate"><default-field title="Planned fix"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+                            <field name="expireDate"><default-field title="Expires"><display format="yyyy-MM-dd HH:mm"/></default-field></field>
+                            <field name="decidedByUserId"><default-field title="Decided by"><display-entity entity-name="moqui.security.UserAccount" key-field-name="userId" text="${userFullName?:username}" also-hidden="false"/></default-field></field>
+                            <field name="decisionComment"><default-field title="Decision comment"><display/></default-field></field>
+                            <field name="errorText"><default-field title="Apply error"><display/></default-field></field>
+                        </form-single>
+                    </box-body>
+                </container-box>
+
+                <container-box>
+                    <box-header title="What changes"/>
+                    <box-body>
+                        <form-list name="DiffList" list="diffList" skip-form="true">
+                            <field name="field"><default-field title="Field"><display/></default-field></field>
+                            <field name="oldValue"><default-field title="Current"><display/></default-field></field>
+                            <field name="newValue"><default-field title="Requested"><display/></default-field></field>
+                        </form-list>
+                    </box-body>
+                </container-box>
+
             </widgets>
             <fail-widgets>
                 <label text="Change request ${requestId} was not found, or it is not yours to see." type="p"/>
