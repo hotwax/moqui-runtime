@@ -1203,4 +1203,21 @@ class ConfigApprovalPocTests extends Specification {
         page.contains("NO: developer must add SECAs")
         page.contains("Yes")
     }
+    def "44 an approver who was removed no longer appears in the Setup approver list"() {
+        when:
+        def renderSetup = {
+            String out
+            ec.user.internalLoginUser("poc_root")
+            try { out = ec.screen.makeRender().webappName("webroot").rootScreen("component://config-approval/screen/ChangeApproval/Setup.xml").renderMode("html").render() }
+            finally { ec.user.logoutUser() }
+            out
+        }
+        as_("root") { ec.service.sync().name(SVC + "add#Approver").parameters([userId: "poc_carol"]).call() }
+        String withCarol = renderSetup()
+        as_("root") { ec.service.sync().name(SVC + "remove#Approver").parameters([userId: "poc_carol"]).call() }
+        String withoutCarol = renderSetup()
+        then:
+        withCarol.contains("(carol)") || withCarol.contains("carol")
+        !withoutCarol.contains("(carol)")
+    }
 }

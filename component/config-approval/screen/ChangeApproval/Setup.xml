@@ -15,6 +15,7 @@
         <script><![CDATA[
             def members = ec.entity.find("moqui.security.UserGroupMember").condition("userGroupId", "CONFIG_APPROVERS")
                     .conditionDate("fromDate", "thruDate", ec.user.nowTimestamp).disableAuthz().list()
+            approverList = members.sort { it.userId }
             List<String> warns = []
             if (members.size() < 2) warns << "Only ${members.size()} approver(s): nobody can approve a request made by the only approver, so it would wait until it expires. Add a second approver."
             List<String> noMail = members.findAll { !ec.entity.find("moqui.security.UserAccount").condition("userId", it.userId).disableAuthz().one()?.emailAddress }.collect { it.userId as String }
@@ -41,11 +42,6 @@
                 <label text="Members of the CONFIG_APPROVERS group. An approver cannot approve their own request." type="p"/>
                 <label text="${approverWarning}" type="p" condition="approverWarning" style="text-danger"/>
                 <form-list name="ApproverList" list="approverList" skip-form="true">
-                    <entity-find entity-name="moqui.security.UserGroupMember" list="approverList">
-                        <date-filter/>
-                        <econdition field-name="userGroupId" value="CONFIG_APPROVERS"/>
-                        <order-by field-name="userId"/>
-                    </entity-find>
                     <field name="userId"><default-field title="User"><display-entity entity-name="moqui.security.UserAccount" text="${userFullName?:username} (${username})"/></default-field></field>
                     <field name="emailInfo"><default-field title="Email"><display text="${ec.entity.find('moqui.security.UserAccount').condition('userId', userId).disableAuthz().one()?.emailAddress ?: '(no email, will not be notified)'}"/></default-field></field>
                     <field name="fromDate"><default-field title="Since"><display format="yyyy-MM-dd"/></default-field></field>
@@ -54,7 +50,7 @@
                 <section name="AddApprover" condition="isAdmin"><widgets>
                     <form-single name="AddApproverForm" transition="addApprover">
                         <field name="userId"><default-field title="Add approver">
-                            <drop-down><entity-options key="${userId}" text="${userFullName?:username} (${username})"><entity-find entity-name="moqui.security.UserAccount"><order-by field-name="username"/></entity-find></entity-options></drop-down>
+                            <drop-down allow-empty="true"><entity-options key="${userId}" text="${userFullName?:username} (${username})"><entity-find entity-name="moqui.security.UserAccount"><econdition field-name="userId" operator="not-equals" value="_NA_"/><order-by field-name="username"/></entity-find></entity-options></drop-down>
                         </default-field></field>
                         <field name="submit"><default-field title="Add"><submit/></default-field></field>
                     </form-single>

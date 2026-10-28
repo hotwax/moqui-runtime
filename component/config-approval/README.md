@@ -36,4 +36,4 @@ is applied when one of them approves. No change to the framework, runtime or oth
 - Digest/read tools for the AI summary: `config-approval.mcp.xml` (needs moqui-ai).
 
 ## Tests
-`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 43 tests) runs against an isolated H2 runtime.
+`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 44 tests) runs against an isolated H2 runtime.
