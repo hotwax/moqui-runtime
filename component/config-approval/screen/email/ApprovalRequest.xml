@@ -41,10 +41,11 @@
     <tr><th>Setting</th><th>Current</th><th>Requested</th></tr>
     <#list diffList as d><tr><td>${d.field}</td><td class="oldValue">${d.oldValue!"(empty)"}</td><td><b>${d.newValue!"(empty)"}</b></td></tr></#list>
 </table>
-<p>Reason: ${reason!"(no reason given)"}</p>
+<p>Reason (as of submission): ${reason!"(no reason given)"}</p>
 <#if plannedFixDate??><p>Planned fix: ${plannedFixDate?string("yyyy-MM-dd HH:mm")}</p></#if>
 <#if expireDate??><p>Expires: ${expireDate?string("yyyy-MM-dd HH:mm")} if nobody decides.</p></#if>
-<p><a class="emailButton" href="${reviewUrl}" style="display:inline-block;padding:10px 20px;background-color:#e31c3d;color:#ffffff;text-decoration:none;border-radius:4px;">Review request</a></p>
+<p><a class="emailButton" href="${reviewUrl}" style="display:inline-block;padding:10px 20px;background-color:#e31c3d;color:#ffffff;text-decoration:none;border-radius:4px;">Open latest request</a></p>
+<p style="font-size:12px;color:#999;">Reason and status may change after this email was sent. The request page always shows the latest details.</p>
 <p>Sign in is required. You can't approve your own requests.</p>
             </td></tr></tbody>
         </table>
