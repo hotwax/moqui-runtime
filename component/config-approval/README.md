@@ -32,8 +32,8 @@ is applied when one of them approves. No change to the framework, runtime or oth
 ## Use
 - Makers: normal screens/APIs. A held change returns a "request sent" message; **New request** (Change Approval menu) takes a
   reason and an optional break-glass. The stock Tools forms have no reason box: add it afterwards on the request page.
-- Approvers: Change Approval > Requests > Approve/Reject. Break-glass applies at once and is flagged in the digest.
+- Approvers: Change Approval > Requests > Approve/Reject. Break-glass applies at once and is flagged in the digest. A requester can also break-glass their own pending request from the request page ("Break-glass: apply now", reason required); it is applied at once and the approvers are emailed.
 - Digest/read tools for the AI summary: `config-approval.mcp.xml` (needs moqui-ai).
 
 ## Tests
-`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 44 tests) runs against an isolated H2 runtime.
+`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 45 tests) runs against an isolated H2 runtime.

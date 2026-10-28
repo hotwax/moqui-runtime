@@ -25,6 +25,10 @@
         <service-call name="co.hotwax.configapproval.ConfigApprovalServices.resend#ConfigChangeEmail"/>
         <default-response url="."/>
     </transition>
+    <transition name="breakGlass">
+        <service-call name="co.hotwax.configapproval.ConfigApprovalServices.breakGlass#ConfigChangeRequest"/>
+        <default-response url="."/>
+    </transition>
     <transition name="retry">
         <service-call name="co.hotwax.configapproval.ConfigApprovalServices.retry#ConfigChangeRequest"/>
         <default-response url="."/>
@@ -39,6 +43,7 @@
         <set field="isPending" from="ccr?.statusId == 'CcrPending'"/>
         <set field="isFailed" from="ccr?.statusId == 'CcrFailed'"/>
         <set field="isRequester" from="ccr?.requestedByUserId == ec.user.userId"/>
+        <set field="canBreakGlass" from="isPending &amp;&amp; isRequester &amp;&amp; (!'true'.equals(System.getProperty('config.approval.breakglass.restrict')) || ec.user.isInGroup('CONFIG_BREAK_GLASS'))"/>
         <set field="canDecide" from="isPending &amp;&amp; !isRequester &amp;&amp; isApprover"/>
         <set field="diffList" from="ccr?.diffJson ? new groovy.json.JsonSlurper().parseText(ccr.diffJson) : []"/>
         <if condition="ccr"><entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"><field-map field-name="statusId" from="ccr.statusId"/></entity-find-one></if>
@@ -120,6 +125,18 @@
                     <widgets>
                         <link url="resendEmail" text="Resend email to approvers" icon="fa fa-envelope-o" link-type="auto"
                               parameter-map="[requestId:requestId]" btn-type="primary" confirmation="Send the approval email to the approvers again?"/>
+                    </widgets>
+                </section>
+                <section name="BreakGlassSection" condition="canBreakGlass">
+                    <widgets>
+                        <container-dialog id="BreakGlassDialog" button-text="Break-glass: apply now">
+                            <label text="Emergency only. The change is applied right now without approval, and the approvers are emailed and see it in the daily digest." type="p"/>
+                            <form-single name="BreakGlassForm" transition="breakGlass">
+                                <field name="requestId"><default-field><hidden/></default-field></field>
+                                <field name="reason"><default-field title="Why is this an emergency? (required)"><text-area rows="3" default-value="${ccr.reason ?: ''}"/></default-field></field>
+                                <field name="submitButton"><default-field title="Apply now (break-glass)"><submit confirmation="Apply this change now without approval?"/></default-field></field>
+                            </form-single>
+                        </container-dialog>
                     </widgets>
                 </section>
                 <section name="CancelSection" condition="isPending &amp;&amp; isRequester">

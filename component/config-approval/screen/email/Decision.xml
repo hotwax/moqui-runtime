@@ -36,7 +36,11 @@
             <tbody><tr><td class="box">
 <#if breakGlass!false>
 <p>Hello,</p>
+<#if statusId == "CcrFailed">
+<p><b>${requesterName}</b> used break-glass on <b>${summaryText}</b> (CR ${requestId}), but it could not be applied. Please review it.</p>
+<#else>
 <p><b>${requesterName}</b> used break-glass: <b>${summaryText}</b> (CR ${requestId}) was applied immediately, without approval. Please review it.</p>
+</#if>
 <p>Reason: ${reason!"(no reason given)"}</p>
 <#else>
 <p>Hello ${requesterName},</p>

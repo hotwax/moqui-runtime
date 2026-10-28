@@ -170,6 +170,10 @@
         <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest"
                 in-map="[requestId:requestId]"/></actions>
     </seca>
+    <seca id="CcrApply_BreakGlass" service="co.hotwax.configapproval.ConfigApprovalServices.breakGlass#ConfigChangeRequest" when="post-commit">
+        <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest"
+                in-map="[requestId:requestId]"/></actions>
+    </seca>
     <seca id="CcrApply_Retry" service="co.hotwax.configapproval.ConfigApprovalServices.retry#ConfigChangeRequest" when="post-commit">
         <actions><service-call name="co.hotwax.configapproval.ConfigApprovalServices.apply#ConfigChangeRequest"
                 in-map="[requestId:requestId]"/></actions>

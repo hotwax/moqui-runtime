@@ -208,7 +208,8 @@
 
             def ccr = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", requestId).forUpdate(true).one()
             if (ccr == null) { ec.message.addError("Change request ${requestId} not found."); return }
-            if (!ec.user.isInGroup("CONFIG_APPROVERS")) { ec.message.addError("You are not an approver for configuration changes."); return }
+            boolean ownBreakGlass = ccr.changeSourceEnumId == "CcsBreakGlass" && ccr.decidedByUserId == ec.user.userId
+            if (!ownBreakGlass && !ec.user.isInGroup("CONFIG_APPROVERS")) { ec.message.addError("You are not an approver for configuration changes."); return }
             if (ccr.statusId != "CcrApproved") { ec.message.addError("Only approved requests can be applied (status is ${ccr.statusId})."); return }
 
             String failure = null
@@ -249,9 +250,42 @@
             ccr.update()
             statusId = ccr.statusId
             errorText = failure
-            if (failure == null) ec.message.addMessage("Change ${requestId} approved and applied.".toString())
+            if (failure == null) ec.message.addMessage((ccr.changeSourceEnumId == "CcsBreakGlass" ?
+                    "Break-glass: change ${requestId} applied. Approvers have been told." : "Change ${requestId} approved and applied.").toString(),
+                    ccr.changeSourceEnumId == "CcsBreakGlass" ? "warning" : "info")
             else ec.message.addMessage("Change ${requestId} was approved but could not be applied: ${failure}".toString(), "warning")
         ]]></script></actions>
+    </service>
+
+    <service verb="breakGlass" noun="ConfigChangeRequest" authenticate="true">
+        <description>Emergency: the requester applies their own pending request now, without waiting for an approver. Needs a reason.
+            It is flagged as break-glass (digest, approvers emailed) and replayed by apply# like an approved request, so the
+            stale check still protects the record. config.approval.breakglass.restrict=true limits it to CONFIG_BREAK_GLASS.</description>
+        <in-parameters>
+            <parameter name="requestId" required="true"/><parameter name="reason" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="statusId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr" for-update="true"/>
+            <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+            <if condition="ccr.requestedByUserId != ec.user.userId">
+                <return error="true" message="Only the requester can use break-glass on a request. Approvers can approve it."/></if>
+            <if condition="'true'.equals(System.getProperty('config.approval.breakglass.restrict')) &amp;&amp; !ec.user.isInGroup('CONFIG_BREAK_GLASS')">
+                <return error="true" message="Break-glass is limited to the on-call group (CONFIG_BREAK_GLASS)."/></if>
+            <if condition="ccr.statusId != 'CcrPending'">
+                <return error="true" message="Break-glass only works on a pending request (status is ${ccr.statusId})."/></if>
+            <if condition="!reason?.trim()"><return error="true" message="A reason is required for break-glass."/></if>
+            <!-- a post-commit SECA runs apply# once this is committed, then tells the approvers -->
+            <set field="ccr.changeSourceEnumId" value="CcsBreakGlass"/>
+            <set field="ccr.reason" from="reason.trim()"/>
+            <set field="ccr.reasonMissing" value="N"/>
+            <set field="ccr.statusId" value="CcrApproved"/>
+            <set field="ccr.decidedByUserId" from="ec.user.userId"/>
+            <set field="ccr.decidedDate" from="ec.user.nowTimestamp"/>
+            <set field="ccr.decisionComment" value="Break-glass: applied immediately"/>
+            <entity-update value-field="ccr"/>
+            <set field="statusId" value="CcrApproved"/>
+        </actions>
     </service>
 
     <service verb="retry" noun="ConfigChangeRequest" authenticate="true">
@@ -309,6 +343,8 @@
             import groovy.json.JsonSlurper
             def ccr = ec.entity.find("co.hotwax.configapproval.ConfigChangeRequest").condition("requestId", requestId).disableAuthz().useCache(false).one()
             if (ccr == null) return
+            // a request turned into break-glass is reported to the approvers, not to the requester who did it
+            if (emailTemplateId == "CCR_DECISION" && ccr.changeSourceEnumId == "CcsBreakGlass") emailTemplateId = "CCR_BREAK_GLASS"
 
             Set<String> to = new LinkedHashSet<>()
             if (emailTemplateId in ["CCR_APPROVAL_REQUEST", "CCR_APPROVAL_REMINDER", "CCR_BREAK_GLASS"]) {

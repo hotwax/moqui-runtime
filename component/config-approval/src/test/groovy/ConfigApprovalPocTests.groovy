@@ -1220,4 +1220,37 @@ class ConfigApprovalPocTests extends Specification {
         withCarol.contains("(carol)") || withCarol.contains("carol")
         !withoutCarol.contains("(carol)")
     }
+    def "45 requester can break-glass their own pending request: needs a reason, only the requester, applies now, approvers are emailed"() {
+        given:
+        makeJob("poc_j45")
+        callUpdate("alice", [jobName: "poc_j45", paused: "Y"])
+        String rid = ccrs("poc_j45")[0].requestId
+        when: "someone else, and then a missing reason, are refused"
+        as_("bob") { ec.service.sync().name(SVC + "breakGlass#ConfigChangeRequest").parameters([requestId: rid, reason: "x"]).call() }
+        then:
+        ec.message.hasError() && ec.message.errorsString.contains("Only the requester")
+        when:
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name(SVC + "breakGlass#ConfigChangeRequest").parameters([requestId: rid, reason: "  "]).call() }
+        then:
+        ec.message.hasError()
+        job("poc_j45").paused != "Y"
+        when: "the requester uses it with a reason"
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name(SVC + "breakGlass#ConfigChangeRequest").parameters([requestId: rid, reason: "prod is on fire"]).call() }
+        def mails = { ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_BREAK_GLASS").disableAuthz().useCache(false).list().findAll { it.subject.contains(rid) }.size() }
+        waitFor { mails() > 0 }
+        def ccr = ec.entity.find(CCR).condition("requestId", rid).disableAuthz().useCache(false).one()
+        then:
+        !ec.message.hasError()
+        job("poc_j45").paused == "Y"
+        ccr.statusId == "CcrApplied" && ccr.changeSourceEnumId == "CcsBreakGlass" && ccr.reason == "prod is on fire"
+        mails() > 0
+        when: "it cannot be used again once decided"
+        as_("alice") { ec.service.sync().name(SVC + "breakGlass#ConfigChangeRequest").parameters([requestId: rid, reason: "again"]).call() }
+        then:
+        ec.message.hasError() && ec.message.errorsString.contains("only works on a pending request")
+        cleanup:
+        ec.message.clearAll()
+    }
 }
