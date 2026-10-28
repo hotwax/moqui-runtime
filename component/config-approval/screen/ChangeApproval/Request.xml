@@ -118,7 +118,7 @@
                 </section>
                 <section name="ResendSection" condition="isPending &amp;&amp; (isRequester || isApprover)">
                     <widgets>
-                        <link url="resendEmail" text="Resend email to approvers" icon="fa fa-envelope" link-type="hidden-form-link"
+                        <link url="resendEmail" text="Resend email to approvers" icon="fa fa-envelope-o" link-type="auto"
                               parameter-map="[requestId:requestId]" btn-type="primary" confirmation="Send the approval email to the approvers again?"/>
                     </widgets>
                 </section>
