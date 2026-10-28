@@ -350,6 +350,22 @@
         ]]></script></actions>
     </service>
 
+    <service verb="resend" noun="ConfigChangeEmail" authenticate="true">
+        <description>From the request page: sends the approval email again, built from the request as it is now (so a reason added
+            after submission is included). The requester or an approver may do it, only while the request is pending.</description>
+        <in-parameters><parameter name="requestId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="co.hotwax.configapproval.ConfigChangeRequest" value-field="ccr"/>
+            <if condition="!ccr"><return error="true" message="Change request ${requestId} not found."/></if>
+            <if condition="ccr.requestedByUserId != ec.user.userId &amp;&amp; !ec.user.isInGroup('CONFIG_APPROVERS')">
+                <return error="true" message="Only the requester or an approver can resend the email."/></if>
+            <if condition="ccr.statusId != 'CcrPending'">
+                <return error="true" message="The approval email can only be resent while the request is pending."/></if>
+            <service-call name="co.hotwax.configapproval.ConfigApprovalServices.send#ConfigChangeEmail" in-map="[requestId:requestId, emailTemplateId:'CCR_APPROVAL_REQUEST']"/>
+            <message>Approval email sent again to the approvers.</message>
+        </actions>
+    </service>
+
     <service verb="run" noun="ConfigApprovalSweep" authenticate="anonymous-all" allow-remote="false">
         <description>Scheduled (ServiceJob ConfigApproval_Sweep). Expires pending requests past their expire date, and reminds
             approvers once about requests still waiting after config.approval.reminder.hours (default 24). Expiring never

@@ -1157,4 +1157,29 @@ class ConfigApprovalPocTests extends Specification {
         !healthy.contains("Only 1 approver")
         healthy.contains("bob@example.com")
     }
+    def "42 requester can resend the approval email while pending; it carries the reason added later; not once decided"() {
+        given:
+        makeJob("poc_j42")
+        callUpdate("alice", [jobName: "poc_j42", paused: "Y"])
+        String rid = ccrs("poc_j42")[0].requestId
+        def mails = { ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_APPROVAL_REQUEST").disableAuthz().useCache(false).list().findAll { it.subject.contains(rid) }.size() }
+        waitFor { mails() > 0 }
+        int before = mails()
+        when:
+        as_("alice") { ec.service.sync().name(SVC + "set#ConfigChangeRequestReason").parameters([requestId: rid, reason: "added later"]).call() }
+        as_("alice") { ec.service.sync().name(SVC + "resend#ConfigChangeEmail").parameters([requestId: rid]).call() }
+        waitFor { mails() > before }
+        then:
+        !ec.message.hasError()
+        mails() > before
+        when:
+        ec.message.clearAll()
+        as_("alice") { ec.service.sync().name(SVC + "cancel#ConfigChangeRequest").parameters([requestId: rid]).call() }
+        as_("alice") { ec.service.sync().name(SVC + "resend#ConfigChangeEmail").parameters([requestId: rid]).call() }
+        then:
+        ec.message.hasError()
+        ec.message.errorsString.contains("only be resent while the request is pending")
+        cleanup:
+        ec.message.clearAll()
+    }
 }
