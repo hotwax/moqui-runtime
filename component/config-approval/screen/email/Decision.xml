@@ -34,6 +34,7 @@
         <table class="emailContentTable">
             <thead><tr><td class="emailTitle"><p class="date">${.now?string["MMMM dd, yyyy"]}</p></td></tr></thead>
             <tbody><tr><td class="box">
+<p style="margin:0 0 12px;padding:6px 10px;background:#f3f3f3;border-radius:4px;font-size:13px;color:#444;">Instance: <b>${instanceName}</b></p>
 <#if breakGlass!false>
 <p>Hello,</p>
 <#if statusId == "CcrFailed">

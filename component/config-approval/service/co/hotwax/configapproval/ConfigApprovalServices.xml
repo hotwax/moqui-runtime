@@ -368,7 +368,10 @@
             boolean httpsOn = System.getProperty("webapp_https_enabled") == "true"
             String host = (httpsOn ? "https://" : "http://") + (System.getProperty("webapp_http_host") ?: "localhost") +
                     (httpsOn ? "" : ":" + (System.getProperty("webapp_http_port") ?: "8080"))
-            Map bodyParameters = [requestId: requestId, summaryText: ccr.summaryText, statusId: ccr.statusId,
+            // which deployment this is: people manage several client instances, so every mail names its own.
+            // config.approval.instance.name wins (e.g. "Acme PROD"), else the configured host name
+            String instanceName = System.getProperty("config.approval.instance.name") ?: (System.getProperty("webapp_http_host") ?: "localhost")
+            Map bodyParameters = [instanceName: instanceName, requestId: requestId, summaryText: ccr.summaryText, statusId: ccr.statusId,
                     statusDescription: status?.description ?: ccr.statusId, reason: ccr.reason, reasonMissing: ccr.reasonMissing,
                     plannedFixDate: ccr.plannedFixDate, expireDate: ccr.expireDate, decisionComment: ccr.decisionComment,
                     errorText: ccr.errorText, requesterName: requester ? (requester.userFullName ?: requester.username) : ccr.requestedByUserId,

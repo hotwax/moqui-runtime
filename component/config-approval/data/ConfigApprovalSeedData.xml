@@ -109,19 +109,19 @@
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_APPROVAL_REQUEST" description="Config change: approval needed"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"
-            subject="Approval needed: ${summaryText} (CR ${requestId})"/>
+            subject="[${instanceName}] Approval needed: ${summaryText} (CR ${requestId})"/>
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_APPROVAL_REMINDER" description="Config change: still waiting for approval"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/ApprovalRequest.xml"
-            subject="Reminder, still waiting: ${summaryText} (CR ${requestId})"/>
+            subject="[${instanceName}] Reminder, still waiting: ${summaryText} (CR ${requestId})"/>
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_BREAK_GLASS" description="Config change: break-glass used"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/Decision.xml"
-            subject="Break-glass used: ${summaryText} (CR ${requestId})"/>
+            subject="[${instanceName}] Break-glass used: ${summaryText} (CR ${requestId})"/>
     <moqui.basic.email.EmailTemplate emailTemplateId="CCR_DECISION" description="Config change: decided or applied"
             emailServerId="SYSTEM" webappName="webroot" sendPartial="Y" fromName="HotWax Commerce" fromAddress="noreply@hotwax.co"
             bodyScreenLocation="component://config-approval/screen/email/Decision.xml"
-            subject="${statusDescription}: ${summaryText} (CR ${requestId})"/>
+            subject="[${instanceName}] ${statusDescription}: ${summaryText} (CR ${requestId})"/>
 
     <!-- expires and reminds every 15 minutes -->
     <moqui.service.job.ServiceJob jobName="ConfigApproval_Sweep" description="Expire and remind pending config change requests"

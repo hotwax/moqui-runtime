@@ -149,7 +149,7 @@ class ConfigApprovalPocTests extends Specification {
         forJ1[0].toAddresses.contains("bob@example.com")
         forJ1[0].toAddresses.contains("dave@example.com")
         !forJ1[0].toAddresses.contains("alice@example.com")
-        forJ1[0].subject.startsWith("Approval needed: Pause job poc_j1")
+        forJ1[0].subject.contains("] Approval needed: Pause job poc_j1")
     }
 
     def "5b approval email body renders the summary, reason and review link"() {
@@ -205,7 +205,7 @@ class ConfigApprovalPocTests extends Specification {
         ccrs("poc_j1").size() == 1
         decisionMail.size() == 1
         decisionMail[0].toAddresses == "alice@example.com"
-        decisionMail[0].subject.startsWith("Applied:")
+        decisionMail[0].subject.contains("] Applied:")
     }
 
     def "8 reject needs a comment and leaves the job alone"() {
@@ -1251,6 +1251,26 @@ class ConfigApprovalPocTests extends Specification {
         then:
         ec.message.hasError() && ec.message.errorsString.contains("only works on a pending request")
         cleanup:
+        ec.message.clearAll()
+    }
+    def "46 every approval email names the instance it came from, in the subject and the body"() {
+        given:
+        makeJob("poc_j46")
+        callUpdate("alice", [jobName: "poc_j46", paused: "Y"])
+        String rid = ccrs("poc_j46")[0].requestId
+        def mail = { ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_APPROVAL_REQUEST").disableAuthz().useCache(false).list().find { it.subject.contains("(CR ${rid})") } }
+        waitFor { mail() != null }
+        System.setProperty("config.approval.instance.name", "Acme PROD")
+        when:
+        as_("alice") { ec.service.sync().name(SVC + "resend#ConfigChangeEmail").parameters([requestId: rid]).call() }
+        waitFor { ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_APPROVAL_REQUEST").disableAuthz().useCache(false).list().any { it.subject.contains("(CR ${rid})") && it.subject.contains("[Acme PROD]") } }
+        def named = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailTemplateId", "CCR_APPROVAL_REQUEST").disableAuthz().useCache(false).list().find { it.subject.contains("(CR ${rid})") && it.subject.contains("[Acme PROD]") }
+        then:
+        named != null
+        named.subject.startsWith("[Acme PROD] Approval needed")
+        named.body.contains("Instance:") && named.body.contains("Acme PROD")
+        cleanup:
+        System.clearProperty("config.approval.instance.name")
         ec.message.clearAll()
     }
 }

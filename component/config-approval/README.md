@@ -17,6 +17,7 @@ is applied when one of them approves. No change to the framework, runtime or oth
    (and `webapp_https_enabled`), so set it to the public host.
 5. Optional properties (MoquiConf.xml): `config.approval.enabled` (master switch), `config.approval.expire.hours` (72),
    `config.approval.reminder.hours` (24), `config.approval.breakglass.restrict`.
+   `config.approval.instance.name` names this deployment in every email (subject prefix and an "Instance:" line); default is `webapp_http_host`.
 
 ## Guarding
 - Which *fields* are guarded is data: Change Approval > Setup (Enumeration type `ConfigApprovalField`, code `Entity.field`).
@@ -36,4 +37,4 @@ is applied when one of them approves. No change to the framework, runtime or oth
 - Digest/read tools for the AI summary: `config-approval.mcp.xml` (needs moqui-ai).
 
 ## Tests
-`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 45 tests) runs against an isolated H2 runtime.
+`src/test/groovy/ConfigApprovalPocTests.groovy` (Spock, 46 tests) runs against an isolated H2 runtime.
