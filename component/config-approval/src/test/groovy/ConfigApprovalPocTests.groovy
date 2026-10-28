@@ -157,7 +157,7 @@ class ConfigApprovalPocTests extends Specification {
         when:
         ec.context.push([requestId: "100000", summaryText: "Pause job poc_j1", reason: "reindex running", reasonMissing: "N",
                 statusId: "CcrPending", statusDescription: "Pending approval", requesterName: "Alice", deciderName: null, decisionComment: null,
-                errorText: null, plannedFixDate: null, expireDate: null, reviewUrl: "https://oms.example.com/apps/Oms/ChangeApproval/Request?requestId=100000",
+                errorText: null, plannedFixDate: null, expireDate: null, reviewUrl: "https://oms.example.com/qapps/Oms/ChangeApproval/Request?requestId=100000",
                 diffList: [[field: "paused", oldValue: "N", newValue: "Y"]]])
         String html
         try { html = ec.screen.makeRender().rootScreen("component://config-approval/screen/email/ApprovalRequest.xml").renderMode("html").render() }
@@ -165,7 +165,7 @@ class ConfigApprovalPocTests extends Specification {
         then:
         html.contains("Pause job poc_j1")
         html.contains("reindex running")
-        html.contains("/apps/Oms/ChangeApproval/Request?requestId=100000")
+        html.contains("/qapps/Oms/ChangeApproval/Request?requestId=100000")
     }
 
     def "6 requester and non-approvers cannot approve"() {
