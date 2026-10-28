@@ -10,6 +10,8 @@ is applied when one of them approves. No change to the framework, runtime or oth
 3. Put at least **two** users in the `CONFIG_APPROVERS` group, each with an email address (Change Approval > Setup does this).
    In OMS, Setup also mirrors the membership as an OFBiz `CONFIG_APPROVERS` security group (plus a `MaargSecGrp` mapping), because
    maarg-util's login sync expires any Moqui group that has no OFBiz group behind it. Add approvers through Setup, not by SQL.
+   This mirror applies only to users that have an OFBiz `UserLogin`; in an OFBiz-independent (`omssetup -PmaargOnly=true`) setup
+   Moqui `UserAccount` is the only login and nothing is mirrored.
    Nobody can approve their own request, so a lone approver leaves their own requests waiting; Setup warns about this.
 4. Mail: the templates use email server `SYSTEM`; configure SMTP for it. Review links use the `webapp_http_host` property
    (and `webapp_https_enabled`), so set it to the public host.

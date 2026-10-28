@@ -421,7 +421,8 @@
         <description>OMS only. maarg-util's OfbizShiroRealm rebuilds each user's Moqui groups from the OFBiz security groups at every
             login and expires any membership that has no OFBiz group behind it, so a CONFIG_APPROVERS membership kept only in Moqui is
             lost at the user's next login. Mirror it as an OFBiz SecurityGroup + MaargSecGrp mapping + UserLoginSecurityGroup so the
-            sync keeps it. Does nothing where those entities do not exist (e.g. a plain Moqui runtime).</description>
+            sync keeps it. Does nothing where those entities do not exist (a plain Moqui runtime), or for a user with no OFBiz UserLogin (an OFBiz-independent
+            setup, where Moqui UserAccount is the only login).</description>
         <in-parameters>
             <parameter name="userId" required="true"/>
             <parameter name="active" type="Boolean" required="true"/>
@@ -435,6 +436,10 @@
             def ua = ef.find("moqui.security.UserAccount").condition("userId", userId).disableAuthz().one()
             if (ua == null) return
             String loginId = ua.username
+            // Only users who log in through OFBiz (a UserLogin row) are subject to the login-time group sync. In an
+            // OFBiz-independent (maarg-only) setup there is no such row and nothing to mirror.
+            String UL = "org.apache.ofbiz.security.login.UserLogin"
+            if (!ef.isEntityDefined(UL) || ef.find(UL).condition("userLoginId", loginId).disableAuthz().count() == 0) return
             def now = ec.user.nowTimestamp
             if (active) {
                 if (ef.find(SG).condition("groupId", "CONFIG_APPROVERS").disableAuthz().one() == null)
