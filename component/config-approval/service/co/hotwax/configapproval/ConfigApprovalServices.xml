@@ -471,7 +471,7 @@
                     description: description ?: code, optionIndicator: secret == "Y" ? "Y" : null]).create()
             String secaText = ec.resource.getLocationReference("component://config-approval/service/config-approval.secas.xml").getText() ?: ""
             boolean hooked = secaText.contains('service="update#' + entityName + '"')
-            ec.message.addMessage("${code} is now in the guarded list. Note: changes to existing records of ${entityName} are held; creating or deleting records is not.".toString())
+            ec.message.addMessage("${code} is now in the guarded list. Note: changes to existing records of ${entityName} are held. Creates and deletes are held only where the component has hooks for them.".toString())
             if (!hooked) ec.message.addMessage("Developer step needed: ${entityName} has no approval hooks yet, so ${code} is NOT actually gated. Add its SECAs to component://config-approval/service/config-approval.secas.xml (copy the ServiceJobParameter ones), see README, Guarding.".toString())
         ]]></script></actions>
     </service>
